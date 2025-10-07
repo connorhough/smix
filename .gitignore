@@ -1,0 +1,14 @@
+# Binary outputs
+smix
+*.exe
+
+# Dependencies
+vendor/
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
