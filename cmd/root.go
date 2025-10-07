@@ -41,7 +41,7 @@ func NewRootCmd() *cobra.Command {
 
 	// Add subcommands
 	rootCmd.AddCommand(newConfigCmd())
-	rootCmd.AddCommand(newExampleCmd())
+	rootCmd.AddCommand(newGCACmd())
 
 	// PersistentPreRun handles configuration initialization
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
