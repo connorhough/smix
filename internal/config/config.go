@@ -1,3 +1,4 @@
+// Package config provides configuration management functionality for the smix application.
 package config
 
 import (

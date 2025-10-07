@@ -1,3 +1,4 @@
+// Package cmd provides the command-line interface for the smix application.
 package cmd
 
 import (
@@ -27,10 +28,9 @@ func Execute() error {
 // NewRootCmd creates and returns the root command for smix
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "smix",
-		Short: "A professional CLI tool for managing projects",
-		Long: `smix is a command-line tool designed for managing projects 
-with a clean, scalable, and maintainable architecture.`,
+		Use:           "smix",
+		Short:         "I'm smix",
+		Long:          `Hi I'm smix!`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Version:       version.String(),

@@ -1,3 +1,4 @@
+// Package example demonstrates the proper pattern for business logic separation in smix.
 package example
 
 import (
@@ -14,7 +15,7 @@ func Run(message string, count int) error {
 	}
 
 	// Business logic: print the message 'count' times
-	for i := 0; i < count; i++ {
+	for range count {
 		fmt.Fprintln(os.Stdout, message)
 	}
 

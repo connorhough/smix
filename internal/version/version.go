@@ -1,3 +1,4 @@
+// Package version provides version information for the smix application.
 package version
 
 import "fmt"
