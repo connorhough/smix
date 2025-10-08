@@ -1,6 +1,9 @@
 # Default binary name
 BINARY_NAME := smix
 
+# Build directory
+BUILD_DIR := builds
+
 # Version information
 VERSION ?= $(shell git describe --tags --always --dirty)
 COMMIT ?= $(shell git rev-parse --short HEAD)
@@ -18,9 +21,13 @@ GOCLEAN := $(GOCMD) clean
 GOTEST := $(GOCMD) test
 GOINSTALL := $(GOCMD) install
 
+# Create build directory if it doesn't exist
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
 # Build target
-build:
-	$(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BINARY_NAME) .
+build: $(BUILD_DIR)
+	$(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) .
 
 # Install target
 install:
@@ -29,7 +36,7 @@ install:
 # Clean target
 clean:
 	$(GOCLEAN)
-	rm -f $(BINARY_NAME)
+	rm -f $(BUILD_DIR)/$(BINARY_NAME)
 
 # Test target
 test:
@@ -40,10 +47,10 @@ lint:
 	golangci-lint run
 
 # Cross-compilation targets
-build-darwin-arm64:
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BINARY_NAME)-darwin-arm64 .
+build-darwin-arm64: $(BUILD_DIR)
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 .
 
-build-linux-amd64:
-	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BINARY_NAME)-linux-amd64 .
+build-linux-amd64: $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 .
 
 .PHONY: build install clean test lint build-darwin-arm64 build-linux-amd64
