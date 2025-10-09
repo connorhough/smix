@@ -36,7 +36,7 @@ install:
 # Clean target
 clean:
 	$(GOCLEAN)
-	rm -f $(BUILD_DIR)/$(BINARY_NAME)
+	rm -rf $(BUILD_DIR)
 
 # Test target
 test:
