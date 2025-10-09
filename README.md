@@ -39,6 +39,16 @@ make build-linux-amd64
 smix example --message "Test" --count 3
 ```
 
+### Test the gca review command
+```bash
+smix gca review owner/repo pr_number
+```
+
+This command will:
+1. Fetch code review feedback from the gemini-code-assist bot on the specified GitHub PR
+2. Process each feedback item with an LLM to generate code patches
+3. Launch Charm Crush sessions for each generated patch
+
 ## Tagging Releases
 
 To create a new version tag for releases:

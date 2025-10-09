@@ -5,8 +5,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
+)
+
+const (
+	cerebrasAPIBaseURL = "https://api.cerebras.ai/v1"
+	cerebrasModel      = "qwen-3-coder-480b"
 )
 
 // Translate converts natural language to shell commands using Cerebras API
@@ -19,7 +25,7 @@ func Translate(taskDescription string) (string, error) {
 
 	// Create authenticated client
 	config := openai.DefaultConfig(apiKey)
-	config.BaseURL = "https://api.cerebras.ai/v1"
+	config.BaseURL = cerebrasAPIBaseURL
 	client := openai.NewClientWithConfig(config)
 
 	// Craft an improved prompt for Cerebras
@@ -46,9 +52,12 @@ Output: du -ah . | sort -rh | head -n 10
 User: "kill the process listening on port 3000"
 Output: fuser -k 3000/tcp`
 
-	// Create chat completion request
-	resp, err := client.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
-		Model: "qwen-3-coder-480b",
+	// Create chat completion request with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model: cerebrasModel,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleSystem,
@@ -65,5 +74,9 @@ Output: fuser -k 3000/tcp`
 	}
 
 	// Return trimmed output
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("failed to get inference from Cerebras: empty response")
+	}
+
 	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
 }

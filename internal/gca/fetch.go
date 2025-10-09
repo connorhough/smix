@@ -22,7 +22,7 @@ type FeedbackItem struct {
 // FetchReviews fetches gemini-code-assist feedback from a GitHub PR
 func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoName string, prNumber int, outputDir string) error {
 	if outputDir == "" {
-		outputDir = fmt.Sprintf("./gemini_feedback_pr%d", prNumber)
+		outputDir = fmt.Sprintf("./gca_feedback_pr%d", prNumber)
 	}
 
 	// Create output directory
@@ -100,20 +100,27 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 	// Process each comment and create individual files
 	for i, item := range feedbackItems {
 		var outputFilePath string
-		var locationInfo string
+		var fileContent string
 
 		if item.File != "" {
 			// Create sanitized filename
 			filename := strings.ReplaceAll(strings.ReplaceAll(item.File, "/", "_"), ".", "_")
 			outputFilePath = filepath.Join(outputDir, fmt.Sprintf("%d_%s_line%d.md", i+1, filename, item.Line))
-			locationInfo = fmt.Sprintf("**File:** `%s`  \n**Line:** %d", item.File, item.Line)
+
+			// Fetch the file content for context
+			file, _, _, err := client.Repositories.GetContents(ctx, repoOwner, repoName, item.File, &github.RepositoryContentGetOptions{Ref: pr.GetHead().GetSHA()})
+			if err == nil && file != nil {
+				content, err := file.GetContent()
+				if err == nil {
+					fileContent = content
+				}
+			}
 		} else {
 			outputFilePath = filepath.Join(outputDir, fmt.Sprintf("%d_general_comment.md", i+1))
-			locationInfo = "**Type:** General PR comment"
 		}
 
-		// Generate the prompt file
-		promptContent := generatePromptContent(repoOwner, repoName, prNumber, locationInfo, item.Body)
+		// Generate the prompt file with file content context
+		promptContent := generatePatchPrompt(repoOwner, repoName, prNumber, item.File, item.Body, fileContent)
 		if err := os.WriteFile(outputFilePath, []byte(promptContent), 0o644); err != nil {
 			return fmt.Errorf("failed to create prompt file %s: %w", outputFilePath, err)
 		}
@@ -134,68 +141,42 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 	return nil
 }
 
-func generatePromptContent(repoOwner, repoName string, prNumber int, locationInfo, body string) string {
+func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment, codeSnippet string) string {
 	repo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-	return fmt.Sprintf(`# Code Review Feedback Analysis
-
-You are an expert software engineer reviewing code feedback from an AI code review tool (gemini-code-assist). Your task is to critically evaluate this feedback and determine the best course of action.
+	return fmt.Sprintf(`You are an expert software engineer tasked with applying a code review suggestion.
+Your goal is to generate a git-style diff for the necessary changes.
 
 ## Context
 
-**Repository:** %s  
-**Pull Request:** #%d  
+- **Repository:** %s
+- **Pull Request:** #%d
+- **File:** %s
+
+## AI Feedback to Apply
+%s
+
+## Original Code Snippet
+%s
+%s
 %s
 
 ## Your Task
 
-Review the relevant file. Analyze the feedback below and provide a structured response that includes:
+1.  **Analyze**: Critically analyze the feedback in the context of the provided code.
+2.  **Generate Diff**: If the feedback is valid, provide the exact changes in a git diff format.
+    - Use '-' for lines to be removed.
+    - Use '+' for lines to be added.
+    - Include 1-2 lines of context before and after the change.
+    - If no change is needed, respond with "REJECT" and a brief explanation.
 
-1. **Critical Analysis**: 
-   - Does the feedback identify a real issue?
-   - Is the suggested solution the best approach?
-   - Are there alternative solutions that might be better?
-   - Does this align with the project's architecture and patterns?
+## Response Format
 
-2. **Decision**: Choose one of:
-   - **ACCEPT**: Agree with the feedback and implement the suggested change (or your improved version)
-   - **MODIFY**: Agree with the concern but propose a different/better solution
-   - **REJECT**: Explain why the feedback doesn't apply or why the current implementation is correct
+Provide your response inside a single markdown code block.
 
-3. **Proposed Changes**: If accepting or modifying, provide:
-   - The exact code changes to make
-   - File path and line numbers
-   - Any additional context needed
-
-## Feedback from gemini-code-assist
-
-severity:
+%sdiff
+[Your git-style diff here]
 %s
-
----
-## Your Response Format
-
-Please structure your response as follows:
-
-%s
-### Decision: [ACCEPT | MODIFY | REJECT]
-
-### Reasoning
-[Your critical analysis - what's the real issue? Is the suggestion optimal? What are the trade-offs?]
-
-### Proposed Solution
-[If ACCEPT or MODIFY: exact code changes, file paths, line numbers]
-[If REJECT: explanation of why no changes are needed]
-
-### Alternative Approaches Considered
-[Other solutions you evaluated and why you chose (or didn't choose) them]
-
-### Implementation Notes
-[Any additional context, testing considerations, or follow-up items]
-%s
-
----
-**Important**: Your goal is to make the best technical decision for the codebase, not to blindly apply suggestions. Consider the broader context, existing patterns, and long-term maintainability.
-`, repo, prNumber, locationInfo, body, "```", "```")
+`, repo, prNumber, file, comment, "```go", codeSnippet, "```", "```", "```")
 }
 
 func generateIndexContent(repoOwner, repoName string, prNumber int, feedbackItems []FeedbackItem) string {
