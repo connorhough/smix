@@ -1,34 +1,24 @@
+// Package do provides functionality for translating natural language descriptions
+// into executable shell commands using large language models.
 package do
 
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/connorhough/smix/internal/llm"
 	"github.com/sashabaranov/go-openai"
-)
-
-const (
-	cerebrasAPIBaseURL = "https://api.cerebras.ai/v1"
-	cerebrasModel      = "qwen-3-coder-480b"
 )
 
 // Translate converts natural language to shell commands using Cerebras API
 func Translate(taskDescription string) (string, error) {
-	// Get API key from environment
-	apiKey := os.Getenv("CEREBRAS_API_KEY")
-	if apiKey == "" {
-		return "", fmt.Errorf("CEREBRAS_API_KEY environment variable not set")
+	client, err := llm.NewCerebrasClient()
+	if err != nil {
+		return "", fmt.Errorf("failed to create Cerebras client: %w", err)
 	}
 
-	// Create authenticated client
-	config := openai.DefaultConfig(apiKey)
-	config.BaseURL = cerebrasAPIBaseURL
-	client := openai.NewClientWithConfig(config)
-
-	// Craft an improved prompt for Cerebras
 	systemPrompt := `You are a shell command expert for Unix-like systems (Linux, macOS). 
 Your sole purpose is to translate the user's request into a single, functional, and secure shell command.
 
@@ -57,7 +47,7 @@ Output: fuser -k 3000/tcp`
 	defer cancel()
 
 	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: cerebrasModel,
+		Model: llm.CerebrasModel,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleSystem,

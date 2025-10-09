@@ -1,3 +1,4 @@
+// Package gca fetches code review feedback from GitHub pull requests and saves them as individual prompt files for further processing.
 package gca
 
 import (
@@ -109,9 +110,13 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 
 			// Fetch the file content for context
 			file, _, _, err := client.Repositories.GetContents(ctx, repoOwner, repoName, item.File, &github.RepositoryContentGetOptions{Ref: pr.GetHead().GetSHA()})
-			if err == nil && file != nil {
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to fetch content of %s: %v\n", item.File, err)
+			} else if file != nil {
 				content, err := file.GetContent()
-				if err == nil {
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to decode content of %s: %v\n", item.File, err)
+				} else {
 					fileContent = content
 				}
 			}

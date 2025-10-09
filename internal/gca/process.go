@@ -1,3 +1,4 @@
+// Package gca processes code review feedback files by generating patches using an LLM and launching Crush sessions for interactive refinement.
 package gca
 
 import (
@@ -7,7 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/connorhough/smix/internal/llm"
 	"github.com/sashabaranov/go-openai"
 	"golang.design/x/clipboard"
 )
@@ -21,7 +24,6 @@ type Patch struct {
 
 // ProcessReviews processes gemini-code-assist feedback files with direct LLM API calls and launches Crush sessions
 func ProcessReviews(ctx context.Context, feedbackDir string) error {
-	// Check if feedback directory exists
 	if _, err := os.Stat(feedbackDir); os.IsNotExist(err) {
 		return fmt.Errorf("directory '%s' does not exist", feedbackDir)
 	}
@@ -32,7 +34,6 @@ func ProcessReviews(ctx context.Context, feedbackDir string) error {
 		return fmt.Errorf("failed to find feedback files: %w", err)
 	}
 
-	// Filter out INDEX.md
 	var filteredFiles []string
 	for _, file := range feedbackFiles {
 		if filepath.Base(file) != "INDEX.md" {
@@ -44,7 +45,6 @@ func ProcessReviews(ctx context.Context, feedbackDir string) error {
 		return fmt.Errorf("no feedback files found in %s", feedbackDir)
 	}
 
-	// Create output directory for results
 	resultsDir := filepath.Join(feedbackDir, "results")
 	if err := os.MkdirAll(resultsDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create results directory: %w", err)
@@ -54,7 +54,6 @@ func ProcessReviews(ctx context.Context, feedbackDir string) error {
 	fmt.Println("Launching Crush sessions for each patch...")
 	fmt.Println()
 
-	// Process each feedback file
 	for i, feedbackFile := range filteredFiles {
 		basename := filepath.Base(feedbackFile)
 		sessionID := getSessionID(basename)
@@ -64,39 +63,48 @@ func ProcessReviews(ctx context.Context, feedbackDir string) error {
 		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		fmt.Println()
 
-		// Read the feedback content
 		feedbackContent, err := os.ReadFile(feedbackFile)
 		if err != nil {
 			return fmt.Errorf("failed to read feedback file %s: %w", feedbackFile, err)
 		}
 
-		// Generate patch using LLM
 		patch, err := generatePatch(string(feedbackContent))
 		if err != nil {
 			return fmt.Errorf("failed to generate patch for %s: %w", feedbackFile, err)
 		}
 
 		// Check if the patch is rejected
-		if after, found := strings.CutPrefix(patch.Content, "REJECT:"); found {
+		content := patch.Content
+		if strings.HasPrefix(content, "```diff") {
+			content = strings.TrimPrefix(content, "```diff")
+			content = strings.TrimSuffix(content, "```")
+			content = strings.TrimSpace(content)
+		}
+		if after, found := strings.CutPrefix(content, "REJECT:"); found {
 			fmt.Printf("⚠ Patch rejected: %s\n", after)
 			fmt.Println()
 			continue
 		}
 
-		// Save the patch to a file
 		outputFile := filepath.Join(resultsDir, fmt.Sprintf("%s_patch.diff", sessionID))
 		if err := os.WriteFile(outputFile, []byte(patch.Content), 0o644); err != nil {
 			return fmt.Errorf("failed to save patch to %s: %w", outputFile, err)
 		}
 		fmt.Printf("✓ Patch saved to: %s\n", outputFile)
 
-		// Put a prompt with the output file path in clipboard and launch Crush in interactive mode
+		// Copy prompt to clipboard and launch crush session
 		fmt.Printf("Launching Crush...\n")
 		if err := clipboard.Init(); err != nil {
 			fmt.Printf("Failed to initialize clipboard: %v\n", err)
 		} else {
-			clipboardContent := "Review and apply " + outputFile
-			clipboard.Write(clipboard.FmtText, []byte(clipboardContent))
+			systemPrompt := fmt.Sprintf(
+				"Review the gemini-code-review feedback in %s and the proposed solution in %s. "+
+					"Explain the suggested changes and their benefits to the author. "+
+					"Then help implement the changes they approve, adapting the solutions as needed based on their input.",
+				feedbackFile,
+				outputFile,
+			)
+			clipboard.Write(clipboard.FmtText, []byte(systemPrompt))
 		}
 		if err := LaunchCrush(); err != nil {
 			fmt.Printf("Failed to launch Crush: %v\n", err)
@@ -120,18 +128,11 @@ func getSessionID(filename string) string {
 
 // generatePatch generates a patch for the given feedback using a direct LLM API call
 func generatePatch(feedbackContent string) (*Patch, error) {
-	// Get API key from environment
-	apiKey := os.Getenv("CEREBRAS_API_KEY")
-	if apiKey == "" {
-		return nil, fmt.Errorf("CEREBRAS_API_KEY environment variable not set")
+	client, err := llm.NewCerebrasClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Cerebras client: %w", err)
 	}
 
-	// Create authenticated client
-	config := openai.DefaultConfig(apiKey)
-	config.BaseURL = "https://api.cerebras.ai/v1"
-	client := openai.NewClientWithConfig(config)
-
-	// Craft improved prompt for patch generation
 	systemPrompt := `You are an expert software engineer tasked with applying code review suggestions.
 Your goal is to generate precise git-style diffs that can be automatically applied to code files.
 
@@ -140,9 +141,20 @@ Requirements:
 2. Generate a git-style diff with proper formatting
 3. Include 2-3 lines of context before and after changes
 4. Use '-' for lines to be removed and '+' for lines to be added
-5. If the feedback is invalid or no change is needed, respond with "REJECT: <reason>"
+5. Preserve exact indentation and whitespace in context lines
+6. If the feedback should be rejected, respond with "REJECT: <reason>"
 
-Example response format:
+REJECT the feedback if ANY of these conditions apply:
+- The feedback is vague, unclear, or lacks specific actionable changes
+- The suggested change would introduce bugs or break functionality
+- The feedback targets code that doesn't exist in the provided file
+- The suggestion contradicts language best practices or project conventions
+- The feedback is a question, observation, or praise without requesting a change
+- The change would require modifications to other files not provided
+- Multiple interpretations exist and the correct one is ambiguous
+- The current code is already correct and feedback is mistaken
+
+Example response format for accepted changes:
 diff --git a/path/to/file.go b/path/to/file.go
 index abc123..def456 100644
 --- a/path/to/file.go
@@ -155,12 +167,14 @@ index abc123..def456 100644
      // More context
  }
 
-Or if rejecting:
-REJECT: The feedback suggestion is not applicable because...`
+Example response format for rejected changes:
+REJECT: The feedback suggests changing the authentication method, but this would break compatibility with the existing API contract and requires changes to the database schema in files not provided.`
 
-	// Create chat completion request
-	resp, err := client.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
-		Model: "qwen-3-coder-480b",
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model: llm.CerebrasProModel,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleSystem,
@@ -183,10 +197,9 @@ REJECT: The feedback suggestion is not applicable because...`
 
 // LaunchCrush opens Charm Crush in interactive mode
 func LaunchCrush() error {
-	// Create the command
 	cmd := exec.Command("crush")
 
-	// Connect the interactive session to the current terminal
+	// Connect interactive session io to current terminal
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

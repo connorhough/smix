@@ -49,6 +49,18 @@ This command will:
 2. Process each feedback item with an LLM to generate code patches
 3. Launch Charm Crush sessions for each generated patch
 
+### Test the do command
+```bash
+smix do "your natural language task"
+```
+
+This command will translate your natural language request into a shell command.
+
+Example:
+```bash
+smix do "list all files in the current directory"
+```
+
 ## Tagging Releases
 
 To create a new version tag for releases:
