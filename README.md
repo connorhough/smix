@@ -34,11 +34,6 @@ For Linux (x86_64):
 make build-linux-amd64
 ```
 
-### Test the example command
-```bash
-smix example --message "Test" --count 3
-```
-
 ### Test the gca review command
 ```bash
 smix gca review owner/repo pr_number
