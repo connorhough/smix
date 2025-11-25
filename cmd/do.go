@@ -12,9 +12,10 @@ func NewDoCmd() *cobra.Command {
 	doCmd := &cobra.Command{
 		Use:   "do \"natural language task description\"",
 		Short: "Translate natural language to shell commands",
-		Long: `Translate natural language task descriptions into functional shell commands.
+		Long: `Translate natural language task descriptions into functional shell commands using Claude Code CLI.
 
-The CEREBRAS_API_KEY environment variable is required to be set before running this command.`,
+Requirements:
+- claude CLI installed (Claude Code from https://claude.ai/code)`,
 		Args: cobra.ExactArgs(1),
 		RunE: runDo,
 	}

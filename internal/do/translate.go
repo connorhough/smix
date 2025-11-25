@@ -1,25 +1,21 @@
 // Package do provides functionality for translating natural language descriptions
-// into executable shell commands using large language models.
+// into executable shell commands using Claude Code CLI.
 package do
 
 import (
-	"context"
 	"fmt"
+	"os/exec"
 	"strings"
-	"time"
-
-	"github.com/connorhough/smix/internal/llm"
-	"github.com/sashabaranov/go-openai"
 )
 
-// Translate converts natural language to shell commands using Cerebras API
+// Translate converts natural language to shell commands using Claude Code CLI
 func Translate(taskDescription string) (string, error) {
-	client, err := llm.NewCerebrasClient()
-	if err != nil {
-		return "", fmt.Errorf("failed to create Cerebras client: %w", err)
+	// Check if claude CLI is available
+	if _, err := exec.LookPath("claude"); err != nil {
+		return "", fmt.Errorf("claude CLI not found in PATH. Please install Claude Code from https://claude.ai/code")
 	}
 
-	systemPrompt := `You are a shell command expert for Unix-like systems (Linux, macOS). 
+	prompt := fmt.Sprintf(`You are a shell command expert for Unix-like systems (Linux, macOS).
 Your sole purpose is to translate the user's request into a single, functional, and secure shell command.
 
 Requirements:
@@ -40,33 +36,22 @@ User: "list the 10 largest files in the current directory"
 Output: du -ah . | sort -rh | head -n 10
 
 User: "kill the process listening on port 3000"
-Output: fuser -k 3000/tcp`
+Output: fuser -k 3000/tcp
 
-	// Create chat completion request with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+User's Request: %s`, taskDescription)
 
-	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: llm.CerebrasProModel,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    openai.ChatMessageRoleSystem,
-				Content: systemPrompt,
-			},
-			{
-				Role:    openai.ChatMessageRoleUser,
-				Content: fmt.Sprintf("User's Request: %s", taskDescription),
-			},
-		},
-	})
+	cmd := exec.Command("claude", "-p", prompt)
+
+	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to get inference from Cerebras: %w", err)
+		return "", fmt.Errorf("claude CLI failed: %w (output: %s)", err, string(outputBytes))
 	}
 
 	// Return trimmed output
-	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("failed to get inference from Cerebras: empty response")
+	output := strings.TrimSpace(string(outputBytes))
+	if output == "" {
+		return "", fmt.Errorf("claude CLI returned empty response")
 	}
 
-	return strings.TrimSpace(resp.Choices[0].Message.Content), nil
+	return output, nil
 }
