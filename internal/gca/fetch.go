@@ -148,40 +148,34 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 
 func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment, codeSnippet string) string {
 	repo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-	return fmt.Sprintf(`You are an expert software engineer tasked with applying a code review suggestion.
-Your goal is to generate a git-style diff for the necessary changes.
 
-## Context
+	// Determine file extension for syntax highlighting
+	ext := filepath.Ext(file)
+	language := "text"
+	if len(ext) > 1 {
+		language = ext[1:] // Remove the leading dot
+	}
 
-- **Repository:** %s
-- **Pull Request:** #%d
-- **File:** %s
+	return fmt.Sprintf(`# Code Review Feedback
 
-## AI Feedback to Apply
+**Repository:** %s
+**Pull Request:** #%d
+**File:** %s
+**Reviewer:** gemini-code-assist[bot]
+
+## Feedback
+
 %s
 
-## Original Code Snippet
+## File Context
+
+%s%s
 %s
 %s
-%s
 
-## Your Task
-
-1.  **Analyze**: Critically analyze the feedback in the context of the provided code.
-2.  **Generate Diff**: If the feedback is valid, provide the exact changes in a git diff format.
-    - Use '-' for lines to be removed.
-    - Use '+' for lines to be added.
-    - Include 1-2 lines of context before and after the change.
-    - If no change is needed, respond with "REJECT" and a brief explanation.
-
-## Response Format
-
-Provide your response inside a single markdown code block.
-
-%sdiff
-[Your git-style diff here]
-%s
-`, repo, prNumber, file, comment, "```go", codeSnippet, "```", "```", "```")
+---
+*Note: This feedback was automatically extracted. Critically evaluate whether it should be applied, modified, or rejected based on your knowledge of the codebase and best practices.*
+`, repo, prNumber, file, comment, "```", language, codeSnippet, "```")
 }
 
 func generateIndexContent(repoOwner, repoName string, prNumber int, feedbackItems []FeedbackItem) string {
