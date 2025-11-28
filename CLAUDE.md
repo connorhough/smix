@@ -44,6 +44,7 @@ The codebase follows strict separation of concerns:
     - `fetch.go`: Fetches PR review comments and creates prompt files
     - `process.go`: Generates patches via LLM and launches Claude Code sessions
   - `do/`: Natural language to shell command translation
+  - `ask/`: Answers short technical questions using Claude Code CLI
   - `llm/`: Shared LLM client (Cerebras API via OpenAI SDK)
   - `config/`: Configuration management wrapper around Viper
   - `version/`: Version info injected at build time
@@ -101,6 +102,20 @@ smix do "list all files in the current directory"
 - `claude` CLI installed (Claude Code)
 
 Uses Claude Code CLI in non-interactive mode to generate safe, POSIX-compliant shell commands.
+
+### ask
+
+Answers short technical questions with concise, accurate responses.
+
+```bash
+smix ask "what is the difference between TCP and UDP"
+smix ask "how do I list all running processes on Linux"
+```
+
+**Requirements:**
+- `claude` CLI installed (Claude Code)
+
+Great for quick lookups and technical questions where you need a brief, informative answer without searching documentation or web resources.
 
 ## LLM Integration
 
