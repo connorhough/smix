@@ -71,7 +71,8 @@ func LaunchClaudeCode(feedbackFile string) error {
 		feedbackFile,
 	)
 
-	cmd := exec.Command("claude", "-p", prompt)
+	// Launch Claude in interactive mode (without -p flag) with initial prompt
+	cmd := exec.Command("claude", prompt)
 
 	// Connect interactive session io to current terminal
 	cmd.Stdin = os.Stdin
