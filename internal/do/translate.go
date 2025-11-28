@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/connorhough/smix/internal/claude"
 )
 
 // Translate converts natural language to shell commands using Claude Code CLI
 func Translate(taskDescription string) (string, error) {
 	// Check if claude CLI is available
-	if _, err := exec.LookPath("claude"); err != nil {
-		return "", fmt.Errorf("claude CLI not found in PATH. Please install Claude Code from https://claude.ai/code")
+	if err := claude.CheckCLI(); err != nil {
+		return "", err
 	}
 
 	prompt := fmt.Sprintf(`You are a shell command expert for Unix-like systems (Linux, macOS).
