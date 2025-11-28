@@ -9,6 +9,8 @@ import (
 	"github.com/connorhough/smix/internal/claude"
 )
 
+const modelName = "haiku"
+
 const promptTemplate = `You are a helpful technical assistant that provides concise, accurate answers to user questions.
 
 Requirements:
@@ -37,7 +39,7 @@ func Answer(question string) (string, error) {
 
 	prompt := fmt.Sprintf(promptTemplate, question)
 
-	cmd := exec.Command("claude", "-p", prompt)
+	cmd := exec.Command("claude", "--model", modelName, "-p", prompt)
 
 	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
