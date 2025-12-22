@@ -154,7 +154,7 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 			outputFilePath = filepath.Join(outputDir, fmt.Sprintf("%d_general_comment.md", i+1))
 		}
 
-		// Determine start line (default to 1 if not available)
+		// Determine start line for the snippet
 		startLine := 1
 		if item.Line > 0 {
 			// Try to show context around the comment line
@@ -163,6 +163,23 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 				startLine -= 10 // Show 10 lines before
 			} else {
 				startLine = 1
+			}
+		}
+
+		// Create a code snippet of ~40 lines
+		var snippet string
+		if fileContent != "" {
+			lines := strings.Split(fileContent, "\n")
+			startIdx := startLine - 1
+			if startIdx < 0 {
+				startIdx = 0
+			}
+			endIdx := startIdx + 40
+			if endIdx > len(lines) {
+				endIdx = len(lines)
+			}
+			if startIdx < endIdx {
+				snippet = strings.Join(lines[startIdx:endIdx], "\n")
 			}
 		}
 
@@ -176,7 +193,7 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 		// Generate the prompt file with enhanced context
 		promptContent := generatePatchPrompt(
 			repoOwner, repoName, prNumber,
-			item.File, item.Body, fileContent,
+			item.File, item.Body, snippet,
 			startLine, item.DiffHunk, commentURL,
 		)
 		if err := os.WriteFile(outputFilePath, []byte(promptContent), 0o644); err != nil {
@@ -206,7 +223,10 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 	// Add line numbers to code snippet
 	numberedCode := addLineNumbers(codeSnippet, startLine)
 
-	prompt := fmt.Sprintf(`# PR Feedback Review Task
+	var prompt strings.Builder
+
+	// Write metadata section
+	fmt.Fprintf(&prompt, `# PR Feedback Review Task
 
 ## Metadata
 - **Repository:** %s
@@ -215,10 +235,11 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 - **Reviewer:** gemini-code-assist[bot]`, repo, prNumber, file)
 
 	if commentURL != "" {
-		prompt += fmt.Sprintf("\n- **Feedback Link:** %s", commentURL)
+		fmt.Fprintf(&prompt, "\n- **Feedback Link:** %s", commentURL)
 	}
 
-	prompt += fmt.Sprintf(`
+	// Write feedback section
+	fmt.Fprintf(&prompt, `
 
 ## Reviewer Feedback
 
@@ -227,7 +248,7 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 
 	// Add diff context if available
 	if diffHunk != "" {
-		prompt += fmt.Sprintf(`
+		fmt.Fprintf(&prompt, `
 ## PR Diff (relevant changes)
 
 > This shows what changed in the PR. Use this to understand the context of the feedback.
@@ -240,7 +261,7 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 
 	// Add file snapshot with line numbers
 	if numberedCode != "" {
-		prompt += fmt.Sprintf(`
+		fmt.Fprintf(&prompt, `
 ## Current File Snapshot (starting at line %d)
 
 > ⚠️ **WARNING:** This is a READ-ONLY snapshot for context.
@@ -252,7 +273,8 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 `, startLine, file, "```", language, numberedCode, "```")
 	}
 
-	prompt += `
+	// Write task instructions
+	fmt.Fprintf(&prompt, `
 ## Your Task
 
 1. **Evaluate** the feedback above against:
@@ -281,9 +303,9 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 ---
 
 **Project Conventions:** If a CONVENTIONS.md, .editorconfig, or style guide exists in the repo root, consult it before deciding.
-`
+`, file)
 
-	return fmt.Sprintf(prompt, file)
+	return prompt.String()
 }
 
 // inferLanguage returns the language identifier for syntax highlighting based on filename
@@ -319,7 +341,7 @@ func addLineNumbers(code string, startLine int) string {
 		return ""
 	}
 
-	lines := strings.Split(code, "\n")
+	lines := strings.Split(strings.TrimRight(code, "\n"), "\n")
 	var numbered strings.Builder
 
 	for i, line := range lines {

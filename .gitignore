@@ -30,3 +30,8 @@ go.work.sum
 
 # gca review directory
 gca_review_*
+
+# LLM files
+GEMINI.md
+CLAUDE.md
+docs/

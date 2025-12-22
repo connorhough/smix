@@ -28,6 +28,15 @@ return nil`
 	}
 }
 
+func TestAddLineNumbersWithTrailingNewline(t *testing.T) {
+	input := "line 1\nline 2\n"
+	want := "1: line 1\n2: line 2"
+	got := addLineNumbers(input, 1)
+	if got != want {
+		t.Errorf("addLineNumbers() with trailing newline =\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestInferLanguage(t *testing.T) {
 	tests := []struct {
 		filename string

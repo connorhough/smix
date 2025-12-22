@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	"regexp"
 )
 
 // ProcessReviews processes gemini-code-assist feedback files and launches Claude Code sessions for each one
@@ -125,20 +125,10 @@ func extractTargetFile(feedbackFile string) string {
 	}
 
 	// Look for "**Target File:** `path/to/file`" in the markdown
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "**Target File:**") {
-			// Extract content between backticks
-			start := strings.Index(line, "`")
-			if start == -1 {
-				continue
-			}
-			end := strings.Index(line[start+1:], "`")
-			if end == -1 {
-				continue
-			}
-			return line[start+1 : start+1+end]
-		}
+	re := regexp.MustCompile(`(?m)^- \*\*Target File:\*\* ` + "`" + `([^` + "`" + `]+)` + "`" + `$`)
+	matches := re.FindStringSubmatch(string(content))
+	if len(matches) > 1 {
+		return matches[1]
 	}
 
 	return ""
