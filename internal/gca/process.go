@@ -62,7 +62,7 @@ func ProcessReviews(feedbackDir string) error {
 // LaunchClaudeCode opens Claude Code with a prompt to review the feedback and implement changes
 func LaunchClaudeCode(feedbackFile string) error {
 	prompt := fmt.Sprintf(
-		"Act as a senior engineer reviewing code feedback. "+
+		"Act as a principal engineer reviewing code feedback. "+
 			"Read %s and: "+
 			"1) Critically evaluate if the gemini-code-assist feedback is valid and important "+
 			"2) Decide to APPLY (as-is or modified) or REJECT it with reasoning "+
