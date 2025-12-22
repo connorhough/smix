@@ -150,11 +150,7 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 	repo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 
 	// Determine file extension for syntax highlighting
-	ext := filepath.Ext(file)
-	language := "text"
-	if len(ext) > 1 {
-		language = ext[1:] // Remove the leading dot
-	}
+	language := inferLanguage(file)
 
 	return fmt.Sprintf(`# Code Review Feedback
 
@@ -176,6 +172,33 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 ---
 *Note: This feedback was automatically extracted. Critically evaluate whether it should be applied, modified, or rejected based on your knowledge of the codebase and best practices.*
 `, repo, prNumber, file, comment, "```", language, codeSnippet, "```")
+}
+
+// inferLanguage returns the language identifier for syntax highlighting based on filename
+func inferLanguage(file string) string {
+	base := filepath.Base(file)
+	ext := filepath.Ext(file)
+
+	// Handle extensionless files
+	switch base {
+	case "Dockerfile":
+		return "dockerfile"
+	case "Makefile":
+		return "makefile"
+	case "Jenkinsfile":
+		return "jenkinsfile"
+	case "go.mod", "go.sum":
+		return "go"
+	case ".editorconfig":
+		return "editorconfig"
+	}
+
+	// Handle extensions
+	if len(ext) > 1 {
+		return ext[1:] // Remove leading dot
+	}
+
+	return "text"
 }
 
 func generateIndexContent(repoOwner, repoName string, prNumber int, feedbackItems []FeedbackItem) string {
