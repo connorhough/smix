@@ -154,8 +154,31 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 			outputFilePath = filepath.Join(outputDir, fmt.Sprintf("%d_general_comment.md", i+1))
 		}
 
-		// Generate the prompt file with file content context
-		promptContent := generatePatchPrompt(repoOwner, repoName, prNumber, item.File, item.Body, fileContent)
+		// Determine start line (default to 1 if not available)
+		startLine := 1
+		if item.Line > 0 {
+			// Try to show context around the comment line
+			startLine = item.Line
+			if startLine > 10 {
+				startLine -= 10 // Show 10 lines before
+			} else {
+				startLine = 1
+			}
+		}
+
+		// Generate comment URL
+		commentURL := ""
+		if item.CommentID > 0 {
+			commentURL = fmt.Sprintf("https://github.com/%s/%s/pull/%d#discussion_r%d",
+				repoOwner, repoName, prNumber, item.CommentID)
+		}
+
+		// Generate the prompt file with enhanced context
+		promptContent := generatePatchPrompt(
+			repoOwner, repoName, prNumber,
+			item.File, item.Body, fileContent,
+			startLine, item.DiffHunk, commentURL,
+		)
 		if err := os.WriteFile(outputFilePath, []byte(promptContent), 0o644); err != nil {
 			return fmt.Errorf("failed to create prompt file %s: %w", outputFilePath, err)
 		}
@@ -176,32 +199,91 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 	return nil
 }
 
-func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment, codeSnippet string) string {
+func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment, codeSnippet string, startLine int, diffHunk, commentURL string) string {
 	repo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-
-	// Determine file extension for syntax highlighting
 	language := inferLanguage(file)
 
-	return fmt.Sprintf(`# Code Review Feedback
+	// Add line numbers to code snippet
+	numberedCode := addLineNumbers(codeSnippet, startLine)
 
-**Repository:** %s
-**Pull Request:** #%d
-**File:** %s
-**Reviewer:** gemini-code-assist[bot]
+	prompt := fmt.Sprintf(`# PR Feedback Review Task
 
-## Feedback
+## Metadata
+- **Repository:** %s
+- **Pull Request:** #%d
+- **Target File:** `+"`%s`"+`
+- **Reviewer:** gemini-code-assist[bot]`, repo, prNumber, file)
+
+	if commentURL != "" {
+		prompt += fmt.Sprintf("\n- **Feedback Link:** %s", commentURL)
+	}
+
+	prompt += fmt.Sprintf(`
+
+## Reviewer Feedback
 
 %s
+`, comment)
 
-## File Context
+	// Add diff context if available
+	if diffHunk != "" {
+		prompt += fmt.Sprintf(`
+## PR Diff (relevant changes)
+
+> This shows what changed in the PR. Use this to understand the context of the feedback.
+
+%sdiff
+%s
+%s
+`, "```", diffHunk, "```")
+	}
+
+	// Add file snapshot with line numbers
+	if numberedCode != "" {
+		prompt += fmt.Sprintf(`
+## Current File Snapshot (starting at line %d)
+
+> ⚠️ **WARNING:** This is a READ-ONLY snapshot for context.
+> You MUST edit the actual file at: `+"`%s`"+`
 
 %s%s
 %s
 %s
+`, startLine, file, "```", language, numberedCode, "```")
+	}
+
+	prompt += `
+## Your Task
+
+1. **Evaluate** the feedback above against:
+   - **Correctness:** Is the suggestion technically accurate?
+   - **Relevance:** Does it apply to this codebase's patterns and conventions?
+   - **Priority:** Is this a bug fix, security issue, style nit, or premature optimization?
+
+2. **Decide** one of:
+   - **APPLY:** Implement the suggestion (verbatim or with modifications)
+   - **REJECT:** The feedback is incorrect, inapplicable, or low-value
+
+3. **Act** on your decision:
+   - If APPLY: Edit the file at `+"`%s`"+`
+   - If REJECT: Do not modify any files
+
+4. **Document** your decision in this format:
 
 ---
-*Note: This feedback was automatically extracted. Critically evaluate whether it should be applied, modified, or rejected based on your knowledge of the codebase and best practices.*
-`, repo, prNumber, file, comment, "```", language, codeSnippet, "```")
+## Decision: [APPLY | REJECT]
+
+### Reasoning
+[Your explanation of why you made this decision]
+
+### Changes Made
+[Summary of edits, or "None" if rejected]
+---
+
+**Project Conventions:** If a CONVENTIONS.md, .editorconfig, or style guide exists in the repo root, consult it before deciding.
+`
+
+	return fmt.Sprintf(prompt, file)
 }
 
 // inferLanguage returns the language identifier for syntax highlighting based on filename
@@ -229,6 +311,25 @@ func inferLanguage(file string) string {
 	}
 
 	return "text"
+}
+
+// addLineNumbers adds line numbers to code snippets starting from startLine
+func addLineNumbers(code string, startLine int) string {
+	if code == "" {
+		return ""
+	}
+
+	lines := strings.Split(code, "\n")
+	var numbered strings.Builder
+
+	for i, line := range lines {
+		if i > 0 {
+			numbered.WriteString("\n")
+		}
+		numbered.WriteString(fmt.Sprintf("%d: %s", startLine+i, line))
+	}
+
+	return numbered.String()
 }
 
 func generateIndexContent(repoOwner, repoName string, prNumber int, feedbackItems []FeedbackItem) string {
