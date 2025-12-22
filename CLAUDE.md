@@ -75,6 +75,7 @@ Fetches code review feedback from gemini-code-assist bot on GitHub PRs and launc
 
 ```bash
 smix gca review owner/repo pr_number
+smix gca review --dir gca_review_pr123  # Process existing feedback directory
 ```
 
 **Requirements:**
@@ -82,13 +83,26 @@ smix gca review owner/repo pr_number
 - `claude` CLI installed (Claude Code)
 
 **Workflow:**
-1. Fetches review comments from GitHub PR
+1. Fetches review comments and diff context from GitHub PR
 2. Filters for gemini-code-assist bot comments
-3. Creates individual prompt files with code context
+3. Creates individual prompt files with:
+   - Line-numbered code snapshots
+   - Git diff hunks showing PR changes
+   - Direct links to comment threads
+   - Structured decision format (APPLY/REJECT)
 4. For each feedback item:
-   - Launches Claude Code session with the feedback file
-   - Claude analyzes the feedback, generates patches, and helps implement changes
-   - Provides interactive refinement and explanation of changes
+   - Launches Claude Code session with explicit target file and constraints
+   - Claude evaluates feedback against codebase patterns and correctness
+   - Implements changes with clear reasoning and documentation
+   - Provides batch progress (item X of Y)
+
+**Prompt Features:**
+- Explicit target file paths for modifications
+- Line-numbered code snippets for precise navigation
+- PR diff context to understand what changed
+- Structured output format (Decision/Reasoning/Changes)
+- Clear autonomy constraints (no tests, no commits)
+- Project conventions awareness (.editorconfig, CONVENTIONS.md)
 
 ### do
 
@@ -179,3 +193,5 @@ Based on CRUSH.md conventions:
 - Use `go fmt` for consistent formatting
 - Comment all exported functions, variables, and types
 - Return errors early rather than deep nesting
+- Do not add any emojis or the "genereated with/co-authored by claude" content to commits. It adds too much bloat to the git history
+
