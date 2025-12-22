@@ -22,6 +22,11 @@ make test                                    # Run all tests
 go test -v ./path/to/package -run TestName  # Run single test
 ```
 
+### Code Quality
+```bash
+make lint   # Run golangci-lint checks
+```
+
 ### Cross-compilation
 ```bash
 make build-darwin-arm64   # Build for macOS ARM64
