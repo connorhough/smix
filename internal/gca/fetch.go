@@ -14,10 +14,12 @@ import (
 
 // FeedbackItem represents a single feedback item from gemini-code-assist
 type FeedbackItem struct {
-	Type string `json:"type"`
-	File string `json:"file"`
-	Line int    `json:"line"`
-	Body string `json:"body"`
+	Type      string `json:"type"`
+	File      string `json:"file"`
+	Line      int    `json:"line"`
+	Body      string `json:"body"`
+	DiffHunk  string `json:"diff_hunk"`  // New field
+	CommentID int64  `json:"comment_id"` // New field
 }
 
 // FetchReviews fetches gemini-code-assist feedback from a GitHub PR
@@ -37,6 +39,21 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 		return fmt.Errorf("failed to get PR #%d in %s/%s: %w", prNumber, repoOwner, repoName, err)
 	}
 	fmt.Printf("Successfully fetched PR #%d: %s\n", prNumber, pr.GetTitle())
+
+	// Fetch PR files to get diff hunks
+	prFiles, _, err := client.PullRequests.ListFiles(ctx, repoOwner, repoName, prNumber, &github.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch PR files: %w", err)
+	}
+	fmt.Printf("Fetched %d changed files\n", len(prFiles))
+
+	// Create a map of file paths to diff patches for quick lookup
+	fileDiffs := make(map[string]string)
+	for _, file := range prFiles {
+		if file.Filename != nil && file.Patch != nil {
+			fileDiffs[*file.Filename] = *file.Patch
+		}
+	}
 
 	// Fetch review comments (inline code comments)
 	reviewComments, _, err := client.PullRequests.ListComments(ctx, repoOwner, repoName, prNumber, &github.PullRequestListCommentsOptions{})
@@ -65,11 +82,24 @@ func FetchReviews(ctx context.Context, client *github.Client, repoOwner, repoNam
 				line = *comment.OriginalPosition
 			}
 
+			file := *comment.Path
+			diffHunk := ""
+			if patch, ok := fileDiffs[file]; ok {
+				diffHunk = patch
+			}
+
+			commentID := int64(0)
+			if comment.ID != nil {
+				commentID = *comment.ID
+			}
+
 			feedbackItems = append(feedbackItems, FeedbackItem{
-				Type: "review_comment",
-				File: *comment.Path,
-				Line: line,
-				Body: *comment.Body,
+				Type:      "review_comment",
+				File:      file,
+				Line:      line,
+				Body:      *comment.Body,
+				DiffHunk:  diffHunk,
+				CommentID: commentID,
 			})
 		}
 	}
