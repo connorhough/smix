@@ -2,6 +2,32 @@ package gca
 
 import "testing"
 
+func TestAddLineNumbers(t *testing.T) {
+	input := `func main() {
+	fmt.Println("Hello")
+}`
+	want := `1: func main() {
+2: 	fmt.Println("Hello")
+3: }`
+
+	got := addLineNumbers(input, 1)
+	if got != want {
+		t.Errorf("addLineNumbers() =\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestAddLineNumbersWithOffset(t *testing.T) {
+	input := `fmt.Println("Hello")
+return nil`
+	want := `42: fmt.Println("Hello")
+43: return nil`
+
+	got := addLineNumbers(input, 42)
+	if got != want {
+		t.Errorf("addLineNumbers() =\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestInferLanguage(t *testing.T) {
 	tests := []struct {
 		filename string
