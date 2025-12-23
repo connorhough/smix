@@ -34,15 +34,15 @@ For Linux (x86_64):
 make build-linux-amd64
 ```
 
-### Test the gca review command
+### Test the pr review command
 ```bash
-smix gca review owner/repo pr_number
+smix pr review owner/repo pr_number
 ```
 
 This command will:
 1. Fetch code review feedback from the gemini-code-assist bot on the specified GitHub PR
 2. Process each feedback item with an LLM to generate code patches
-3. Launch Charm Crush sessions for each generated patch
+3. Launch Claude Code sessions for each generated patch
 
 ### Test the do command
 ```bash
