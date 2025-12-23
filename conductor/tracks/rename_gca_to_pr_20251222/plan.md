@@ -8,7 +8,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Preparation and Renaming' (Protocol in workflow.md) c518478
 
 ## Phase 2: Documentation and Cleanup
-- [ ] Task: Update `README.md` examples from `smix gca review` to `smix pr review`
+- [x] Task: Update `README.md` examples from `smix gca review` to `smix pr review` 4d035d9
 - [ ] Task: Update any other documentation or comments referring to `gca review`
 - [ ] Task: Remove old `cmd/gca.go` file
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Documentation and Cleanup' (Protocol in workflow.md)
