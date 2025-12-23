@@ -31,6 +31,9 @@ go.work.sum
 # gca review directory
 gca_review_*
 
+# Conductor
+conductor/
+
 # LLM files
 GEMINI.md
 CLAUDE.md
