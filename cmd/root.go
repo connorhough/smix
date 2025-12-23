@@ -41,7 +41,7 @@ func NewRootCmd() *cobra.Command {
 
 	// Add subcommands
 	rootCmd.AddCommand(newConfigCmd())
-	rootCmd.AddCommand(newGCACmd())
+	rootCmd.AddCommand(newPRCmd())
 	rootCmd.AddCommand(NewDoCmd())
 	rootCmd.AddCommand(NewAskCmd())
 

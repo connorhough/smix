@@ -1,0 +1,14 @@
+# Plan: Rename `gca review` to `pr review`
+
+## Phase 1: Preparation and Renaming [checkpoint: c518478]
+- [x] Task: Create `cmd/pr.go` by copying/refactoring `cmd/gca.go` 514c548
+- [x] Task: Update `cmd/pr.go` to use `pr` as the command name and `review` as the subcommand 514c548
+- [x] Task: Register `prCmd` in `cmd/root.go` and remove/deprecate `gcaCmd` 514c548
+- [x] Task: Update `internal/gca/` references in `cmd/pr.go` if necessary 514c548
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Preparation and Renaming' (Protocol in workflow.md) c518478
+
+## Phase 2: Documentation and Cleanup
+- [ ] Task: Update `README.md` examples from `smix gca review` to `smix pr review`
+- [ ] Task: Update any other documentation or comments referring to `gca review`
+- [ ] Task: Remove old `cmd/gca.go` file
+- [ ] Task: Conductor - User Manual Verification 'Phase 2: Documentation and Cleanup' (Protocol in workflow.md)
