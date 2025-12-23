@@ -285,15 +285,16 @@ func generatePatchPrompt(repoOwner, repoName string, prNumber int, file, comment
 2. **Decide** one of:
    - **APPLY:** Implement the suggestion (verbatim or with modifications)
    - **REJECT:** The feedback is incorrect, inapplicable, or low-value
+   - **SKIP:** The target file doesn't exist or the feedback is no longer applicable
 
 3. **Act** on your decision:
-   - If APPLY: Edit the file at `+"`%s`"+`
-   - If REJECT: Do not modify any files
+   - If APPLY: Edit the file at `+"`%s`"+` and run relevant formatters (e.g., gofmt, prettier)
+   - If REJECT or SKIP: Do not modify any files
 
 4. **Document** your decision in this format:
 
 ---
-## Decision: [APPLY | REJECT]
+## Decision: [APPLY | REJECT | SKIP]
 
 ### Reasoning
 [Your explanation of why you made this decision]
