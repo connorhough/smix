@@ -34,7 +34,10 @@ type GenerateOptions struct {
 ## Design Decisions
 
 1. **Context Support:** All operations take context.Context for cancellation/timeout
-2. **Model Validation:** Let API/CLI fail naturally, wrap errors with helpful context
+2. **Model Validation:** Let API/CLI fail naturally, wrap errors with helpful context.
+   Rationale: Model names evolve rapidly at provider APIs. Client-side validation
+   becomes stale and creates maintenance burden. Better to rely on authoritative
+   provider errors and wrap them for context.
 3. **Options Pattern:** Functional options for flexibility (model override, future params)
 4. **No Streaming:** Simple request-response sufficient for ask/do commands
 
@@ -46,9 +49,24 @@ Providers should wrap errors with typed errors defined in `errors.go`:
 - `ErrRateLimitExceeded`: Provider rate limit hit
 - `ErrModelNotFound`: Model name invalid (wrapped from API/CLI error)
 
+Example error usage:
+```go
+// Error wrapping in provider implementation:
+return llm.ErrAuthenticationFailed("gemini", err)
+
+// Error checking in command:
+if err := provider.Generate(ctx, prompt); err != nil {
+    if errors.Is(err, &llm.ProviderError{}) {
+        // Handle provider-specific error
+    }
+}
+```
+
 ## Retry Logic
 
-Network errors trigger exponential backoff retry:
+Retryable errors trigger exponential backoff retry:
+- **Retryable:** Network errors, timeouts, 5xx server errors, rate limits
+- **Non-retryable:** Authentication failures, model not found, invalid requests
 - Max retries: 3
 - Initial delay: 1s
 - Max delay: 30s
