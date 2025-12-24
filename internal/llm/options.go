@@ -15,8 +15,9 @@ func WithModel(model string) Option {
 	}
 }
 
-// buildOptions constructs GenerateOptions from Option functions
-func buildOptions(opts []Option) *GenerateOptions {
+// BuildOptions constructs GenerateOptions from Option functions
+// Exported for use by provider implementations
+func BuildOptions(opts []Option) *GenerateOptions {
 	options := &GenerateOptions{}
 	for _, opt := range opts {
 		opt(options)
