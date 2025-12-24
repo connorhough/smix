@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -213,7 +214,7 @@ func TestContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Logf("Cancelled context error: %v", err)
 		t.Logf("Error type: %T", err)
-		if err == context.Canceled {
+		if errors.Is(err, context.Canceled) {
 			t.Log("Context cancellation works correctly!")
 		}
 	} else {
