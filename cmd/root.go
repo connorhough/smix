@@ -12,8 +12,11 @@ import (
 )
 
 var (
-	cfgFile string
-	rootCmd *cobra.Command
+	cfgFile      string
+	rootCmd      *cobra.Command
+	debugFlag    bool
+	providerFlag string
+	modelFlag    string
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -38,6 +41,9 @@ func NewRootCmd() *cobra.Command {
 
 	// Add persistent flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default locations: $XDG_CONFIG_HOME/smix/config.yaml, ~/.config/smix/config.yaml, or ~/.smix.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Enable debug output")
+	rootCmd.PersistentFlags().StringVar(&providerFlag, "provider", "", "Override LLM provider (claude, gemini)")
+	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "", "Override model name")
 
 	// Add subcommands
 	rootCmd.AddCommand(newConfigCmd())
@@ -87,4 +93,11 @@ func initConfig() error {
 	}
 
 	return nil
+}
+
+// debugLog prints debug information if debug flag is enabled
+func debugLog(format string, args ...interface{}) {
+	if debugFlag {
+		fmt.Fprintf(os.Stderr, "[DEBUG] "+format+"\n", args...)
+	}
 }
