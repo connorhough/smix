@@ -2,6 +2,7 @@ package providers
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/connorhough/smix/internal/llm"
@@ -23,7 +24,8 @@ func NewFactory() *Factory {
 }
 
 // GetProvider returns a provider by name, creating and caching it if needed
-func (f *Factory) GetProvider(name, apiKey string) (llm.Provider, error) {
+// API keys are retrieved from environment variables automatically
+func (f *Factory) GetProvider(name string) (llm.Provider, error) {
 	// Try to get from cache first (read lock)
 	f.mu.RLock()
 	if provider, ok := f.cache[name]; ok {
@@ -49,6 +51,8 @@ func (f *Factory) GetProvider(name, apiKey string) (llm.Provider, error) {
 	case "claude":
 		provider, err = claude.NewProvider()
 	case "gemini":
+		// Retrieve API key from environment
+		apiKey := os.Getenv("GEMINI_API_KEY")
 		provider, err = gemini.NewProvider(apiKey)
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
@@ -68,6 +72,6 @@ func (f *Factory) GetProvider(name, apiKey string) (llm.Provider, error) {
 var globalFactory = NewFactory()
 
 // GetProvider is a convenience function that uses the global factory
-func GetProvider(name, apiKey string) (llm.Provider, error) {
-	return globalFactory.GetProvider(name, apiKey)
+func GetProvider(name string) (llm.Provider, error) {
+	return globalFactory.GetProvider(name)
 }
