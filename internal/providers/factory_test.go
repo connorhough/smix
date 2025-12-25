@@ -12,7 +12,7 @@ func TestFactory_GetProvider(t *testing.T) {
 	factory := NewFactory()
 
 	t.Run("creates claude provider", func(t *testing.T) {
-		provider, err := factory.GetProvider("claude", "")
+		provider, err := factory.GetProvider("claude")
 		if err != nil {
 			// Skip if claude CLI not available
 			if _, ok := err.(*llm.ProviderError); ok {
@@ -30,9 +30,11 @@ func TestFactory_GetProvider(t *testing.T) {
 		apiKey := os.Getenv("GEMINI_API_KEY")
 		if apiKey == "" {
 			apiKey = "test-key-for-unit-test"
+			os.Setenv("GEMINI_API_KEY", apiKey)
+			defer os.Unsetenv("GEMINI_API_KEY")
 		}
 
-		provider, err := factory.GetProvider("gemini", apiKey)
+		provider, err := factory.GetProvider("gemini")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -84,12 +86,12 @@ func TestFactory_GetProvider(t *testing.T) {
 
 	t.Run("returns cached provider", func(t *testing.T) {
 		// Get provider twice
-		p1, err := factory.GetProvider("claude", "")
+		p1, err := factory.GetProvider("claude")
 		if err != nil {
 			t.Skip("claude CLI not available")
 		}
 
-		p2, err := factory.GetProvider("claude", "")
+		p2, err := factory.GetProvider("claude")
 		if err != nil {
 			t.Fatalf("unexpected error on second call: %v", err)
 		}
@@ -101,7 +103,7 @@ func TestFactory_GetProvider(t *testing.T) {
 	})
 
 	t.Run("fails for unknown provider", func(t *testing.T) {
-		_, err := factory.GetProvider("unknown", "")
+		_, err := factory.GetProvider("unknown")
 		if err == nil {
 			t.Error("expected error for unknown provider")
 		}
@@ -113,7 +115,7 @@ func TestFactory_GetProvider(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, _ = factory.GetProvider("claude", "")
+				_, _ = factory.GetProvider("claude")
 			}()
 		}
 		wg.Wait()
