@@ -5,7 +5,6 @@ package do
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/llm"
@@ -41,17 +40,8 @@ User's Request: %s`
 func Translate(ctx context.Context, taskDescription string, cfg *config.ProviderConfig, debugFn func(string, ...interface{})) (string, error) {
 	debugFn("do command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
 
-	// Get API key for Gemini if needed
-	apiKey := ""
-	if cfg.Provider == "gemini" {
-		apiKey = os.Getenv("GEMINI_API_KEY")
-		if apiKey == "" {
-			return "", fmt.Errorf("GEMINI_API_KEY environment variable required for Gemini provider")
-		}
-	}
-
-	// Get provider from factory
-	provider, err := providers.GetProvider(cfg.Provider, apiKey)
+	// Get provider from factory (API keys handled internally)
+	provider, err := providers.GetProvider(cfg.Provider)
 	if err != nil {
 		return "", fmt.Errorf("failed to get provider: %w", err)
 	}
