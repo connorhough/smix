@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -61,36 +62,51 @@ func NewRootCmd() *cobra.Command {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() error {
+	// Determine config file path
+	var configPath string
 	if cfgFile != "" {
-		// Use config file from the flag.
+		// Use config file from the flag
+		configPath = cfgFile
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find config file in standard locations
-		if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
-			viper.AddConfigPath(filepath.Join(xdgConfigHome, "smix"))
-		} else {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("failed to get user home directory: %w", err)
-			}
-			viper.AddConfigPath(filepath.Join(home, ".config", "smix"))
-			viper.AddConfigPath(home)
+		// Determine default config path
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home directory: %w", err)
 		}
+
+		xdgConfig := os.Getenv("XDG_CONFIG_HOME")
+		if xdgConfig == "" {
+			xdgConfig = filepath.Join(home, ".config")
+		}
+
+		configPath = filepath.Join(xdgConfig, "smix", "config.yaml")
+
+		// Set up viper search paths
+		viper.AddConfigPath(filepath.Join(xdgConfig, "smix"))
+		viper.AddConfigPath(filepath.Join(home, ".config", "smix"))
+		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName("config")
 	}
+
+	// Ensure config file exists (create from template if needed)
+	if err := config.EnsureConfigExists(configPath); err != nil {
+		return fmt.Errorf("failed to initialize config: %w", err)
+	}
+
+	debugLog("Using config file: %s", configPath)
 
 	// Read in environment variables that match
 	viper.SetEnvPrefix("SMIX")
 	viper.AutomaticEnv()
 
-	// If a config file is found, read it in.
+	// Read config file
 	if err := viper.ReadInConfig(); err != nil {
-		// Config file not found; ignore error if desired
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return err
-		}
+		return fmt.Errorf("failed to read config: %w", err)
 	}
+
+	debugLog("Config loaded successfully")
 
 	return nil
 }
