@@ -48,6 +48,7 @@ func TestNewProvider(t *testing.T) {
 
 	if p == nil {
 		t.Error("expected non-nil provider")
+		t.FailNow()
 	}
 
 	if p.cliPath == "" {

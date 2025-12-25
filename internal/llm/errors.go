@@ -39,17 +39,19 @@ func ErrAuthenticationFailed(provider string, err error) error {
 }
 
 // ErrRateLimitExceeded indicates the provider's rate limit was hit
-func ErrRateLimitExceeded(provider string) error {
+func ErrRateLimitExceeded(provider string, err error) error {
 	return &ProviderError{
 		Provider: provider,
 		Msg:      fmt.Sprintf("rate limit exceeded for provider '%s'", provider),
+		Err:      err,
 	}
 }
 
 // ErrModelNotFound indicates the specified model doesn't exist for the provider
-func ErrModelNotFound(model, provider string) error {
+func ErrModelNotFound(model, provider string, err error) error {
 	return &ProviderError{
 		Provider: provider,
 		Msg:      fmt.Sprintf("model '%s' not found for provider '%s'", model, provider),
+		Err:      err,
 	}
 }

@@ -14,9 +14,9 @@ const (
 )
 
 // RetryWithBackoff executes a function with exponential backoff retry logic.
-// It retries up to maxRetries times (3 attempts) with exponential backoff starting
-// at initialDelay (1s) and capping at maxDelay (30s). The delay doubles after each
-// failed attempt (backoffRate 2.0).
+// It retries up to maxRetries times with exponential backoff starting
+// at initialDelay and capping at maxDelay. The delay increases by a factor of
+// backoffRate after each failed attempt
 //
 // Context cancellation is respected at two points:
 // 1. Before each attempt
@@ -27,8 +27,7 @@ func RetryWithBackoff(ctx context.Context, fn func(context.Context) (string, err
 	var lastErr error
 	delay := initialDelay
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		// Check context before attempting
+	for attempt := range maxRetries {
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
@@ -44,11 +43,10 @@ func RetryWithBackoff(ctx context.Context, fn func(context.Context) (string, err
 		if attempt < maxRetries-1 {
 			select {
 			case <-time.After(delay):
-				// Calculate next delay with exponential backoff
-				delay = time.Duration(float64(delay) * backoffRate)
-				if delay > maxDelay {
-					delay = maxDelay
-				}
+				delay = min(
+					time.Duration(float64(delay)*backoffRate),
+					maxDelay,
+				)
 			case <-ctx.Done():
 				return "", ctx.Err()
 			}

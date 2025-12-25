@@ -1,3 +1,4 @@
+// Package providers implements the provider factory.
 package providers
 
 import (
@@ -23,10 +24,8 @@ func NewFactory() *Factory {
 	}
 }
 
-// GetProvider returns a provider by name, creating and caching it if needed
-// API keys are retrieved from environment variables automatically
+// GetProvider returns a provider by name
 func (f *Factory) GetProvider(name string) (llm.Provider, error) {
-	// Try to get from cache first (read lock)
 	f.mu.RLock()
 	if provider, ok := f.cache[name]; ok {
 		f.mu.RUnlock()
@@ -34,25 +33,21 @@ func (f *Factory) GetProvider(name string) (llm.Provider, error) {
 	}
 	f.mu.RUnlock()
 
-	// Not in cache, create new provider (write lock)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	// Double-check after acquiring write lock (another goroutine might have created it)
 	if provider, ok := f.cache[name]; ok {
 		return provider, nil
 	}
 
-	// Create provider based on name
 	var provider llm.Provider
 	var err error
 
 	switch name {
-	case "claude":
+	case claude.ProviderClaude:
 		provider, err = claude.NewProvider()
-	case "gemini":
-		// Retrieve API key from environment
-		apiKey := os.Getenv("GEMINI_API_KEY")
+	case gemini.ProviderGemini:
+		apiKey := os.Getenv(gemini.APIKeyEnvVar)
 		provider, err = gemini.NewProvider(apiKey)
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
@@ -62,7 +57,6 @@ func (f *Factory) GetProvider(name string) (llm.Provider, error) {
 		return nil, err
 	}
 
-	// Cache the provider
 	f.cache[name] = provider
 
 	return provider, nil

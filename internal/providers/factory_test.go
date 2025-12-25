@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/connorhough/smix/internal/llm"
+	"github.com/connorhough/smix/internal/llm/gemini"
 )
 
 func TestFactory_GetProvider(t *testing.T) {
@@ -27,11 +28,11 @@ func TestFactory_GetProvider(t *testing.T) {
 	})
 
 	t.Run("creates gemini provider with API key", func(t *testing.T) {
-		apiKey := os.Getenv("GEMINI_API_KEY")
+		apiKey := os.Getenv(gemini.APIKeyEnvVar)
 		if apiKey == "" {
 			apiKey = "test-key-for-unit-test"
-			os.Setenv("GEMINI_API_KEY", apiKey)
-			defer os.Unsetenv("GEMINI_API_KEY")
+			os.Setenv(gemini.APIKeyEnvVar, apiKey)
+			defer os.Unsetenv(gemini.APIKeyEnvVar)
 		}
 
 		provider, err := factory.GetProvider("gemini")
@@ -44,14 +45,10 @@ func TestFactory_GetProvider(t *testing.T) {
 		}
 	})
 
-	// TODO: The following tests use the new GetProvider signature (single parameter)
-	// and will fail to compile until Task 2 refactors the factory to retrieve
-	// API keys from environment variables internally. This is intentional TDD.
-
 	t.Run("retrieves API key from environment for gemini", func(t *testing.T) {
 		// Set up environment
-		os.Setenv("GEMINI_API_KEY", "test-api-key-from-env")
-		defer os.Unsetenv("GEMINI_API_KEY")
+		os.Setenv(gemini.APIKeyEnvVar, "test-api-key-from-env")
+		defer os.Unsetenv(gemini.APIKeyEnvVar)
 
 		// Create fresh factory to avoid cache
 		newFactory := NewFactory()
@@ -68,14 +65,14 @@ func TestFactory_GetProvider(t *testing.T) {
 
 	t.Run("fails for gemini without API key", func(t *testing.T) {
 		// Ensure env var is not set
-		os.Unsetenv("GEMINI_API_KEY")
+		os.Unsetenv(gemini.APIKeyEnvVar)
 
 		// Create fresh factory to avoid cache
 		newFactory := NewFactory()
 
 		_, err := newFactory.GetProvider("gemini")
 		if err == nil {
-			t.Error("expected error when GEMINI_API_KEY not set")
+			t.Error("expected error when API key not set")
 		}
 
 		// Should be authentication error

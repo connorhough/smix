@@ -39,18 +39,17 @@ func TestNewProvider_MissingAPIKey(t *testing.T) {
 	}
 }
 
-// Integration test - only runs with GEMINI_API_KEY set
+// Integration test - only runs with API key set
 func TestGeminiProvider_Generate_Integration(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv(APIKeyEnvVar)
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set")
+		t.Skip("API key not set")
 	}
 
 	p, err := NewProvider(apiKey)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}
-	defer p.Close()
 
 	ctx := context.Background()
 	result, err := p.Generate(ctx, "Say 'hello' and nothing else")
