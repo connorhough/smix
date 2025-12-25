@@ -42,6 +42,46 @@ func TestFactory_GetProvider(t *testing.T) {
 		}
 	})
 
+	// TODO: The following tests use the new GetProvider signature (single parameter)
+	// and will fail to compile until Task 2 refactors the factory to retrieve
+	// API keys from environment variables internally. This is intentional TDD.
+
+	t.Run("retrieves API key from environment for gemini", func(t *testing.T) {
+		// Set up environment
+		os.Setenv("GEMINI_API_KEY", "test-api-key-from-env")
+		defer os.Unsetenv("GEMINI_API_KEY")
+
+		// Create fresh factory to avoid cache
+		newFactory := NewFactory()
+
+		provider, err := newFactory.GetProvider("gemini")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if provider.Name() != "gemini" {
+			t.Errorf("got provider %q, want %q", provider.Name(), "gemini")
+		}
+	})
+
+	t.Run("fails for gemini without API key", func(t *testing.T) {
+		// Ensure env var is not set
+		os.Unsetenv("GEMINI_API_KEY")
+
+		// Create fresh factory to avoid cache
+		newFactory := NewFactory()
+
+		_, err := newFactory.GetProvider("gemini")
+		if err == nil {
+			t.Error("expected error when GEMINI_API_KEY not set")
+		}
+
+		// Should be authentication error
+		if _, ok := err.(*llm.ProviderError); !ok {
+			t.Errorf("expected ProviderError, got %T", err)
+		}
+	})
+
 	t.Run("returns cached provider", func(t *testing.T) {
 		// Get provider twice
 		p1, err := factory.GetProvider("claude", "")
