@@ -115,12 +115,15 @@ Translates natural language task descriptions into shell commands.
 
 ```bash
 smix do "list all files in the current directory"
+smix do --provider gemini "find large files"
 ```
 
 **Requirements:**
-- `claude` CLI installed (Claude Code)
+- Configured LLM provider (Claude or Gemini)
+- Default: Claude (requires Claude Code CLI)
+- Gemini: Set `GEMINI_API_KEY` environment variable
 
-Uses Claude Code CLI in non-interactive mode to generate safe, POSIX-compliant shell commands.
+Generates safe, POSIX-compliant shell commands using your configured provider.
 
 ### ask
 
@@ -128,28 +131,65 @@ Answers short technical questions with concise, accurate responses.
 
 ```bash
 smix ask "what is the difference between TCP and UDP"
-smix ask "how do I list all running processes on Linux"
+smix ask --provider gemini "how do I list all running processes on Linux"
 ```
 
 **Requirements:**
-- `claude` CLI installed (Claude Code)
+- Configured LLM provider (Claude or Gemini)
+- Default: Claude (requires Claude Code CLI)
+- Gemini: Set `GEMINI_API_KEY` environment variable
 
 Great for quick lookups and technical questions where you need a brief, informative answer without searching documentation or web resources.
 
 ## LLM Integration
 
-All LLM-powered commands use the Claude Code CLI in non-interactive mode:
-- **Command**: `claude -p "prompt"`
-- **Authentication**: Uses your Claude Code session (requires `claude` CLI installed)
-- **Model**: Uses your configured Claude model (Sonnet by default)
+smix supports multiple LLM providers through a unified interface:
 
-To add new LLM-powered features, follow the pattern in `internal/do/translate.go`:
+### Architecture
+
+- **`internal/llm/`** - Core provider interface, error types, retry logic, and options
+- **`internal/llm/claude/`** - Claude provider (wraps Claude Code CLI)
+- **`internal/llm/gemini/`** - Gemini provider (uses Google AI SDK)
+- **`internal/providers/`** - Provider factory with caching
+
+### Supported Providers
+
+**Claude (via Claude Code CLI):**
+- Wraps `claude -p "prompt"` in subprocess
+- Models: `haiku`, `sonnet`, `opus`
+- Requires: Claude Code CLI installed and authenticated
+
+**Gemini (via Google AI SDK):**
+- Uses `google.golang.org/genai` SDK
+- Models: `gemini-3-flash-preview`, `gemini-3-pro-preview`
+- Requires: `GEMINI_API_KEY` environment variable
+
+### Adding New LLM-Powered Features
+
+Use the provider interface for consistent behavior:
+
 ```go
-cmd := exec.Command("claude", "-p", yourPrompt)
-output, err := cmd.CombinedOutput()
+import (
+    "context"
+    "github.com/connorhough/smix/internal/config"
+    "github.com/connorhough/smix/internal/llm"
+    "github.com/connorhough/smix/internal/providers"
+)
+
+// Get provider from factory
+cfg := config.ResolveProviderConfig("commandname")
+provider, err := providers.GetProvider(cfg.Provider, apiKey)
+
+// Generate response
+opts := []llm.Option{llm.WithModel(cfg.Model)}
+response, err := provider.Generate(ctx, prompt, opts...)
 ```
 
-For more complex integrations requiring structured output, use `--output-format json` with optional `--json-schema`.
+Key benefits:
+- Automatic retry with exponential backoff
+- Typed error handling (auth failures, rate limits, etc.)
+- Provider caching for performance
+- Configurable per command or globally
 
 ## Adding New Commands
 
