@@ -1,7 +1,9 @@
+// Package gemini implements the gemini Provider interface.
 package gemini
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +11,8 @@ import (
 
 	"github.com/connorhough/smix/internal/llm"
 )
+
+const ProviderGemini = "gemini"
 
 // Provider implements the llm.Provider interface for Gemini API
 type Provider struct {
@@ -20,7 +24,7 @@ type Provider struct {
 func NewProvider(apiKey string) (*Provider, error) {
 	if apiKey == "" {
 		return nil, llm.ErrAuthenticationFailed("gemini",
-			fmt.Errorf("API key is required (set GEMINI_API_KEY environment variable)"))
+			fmt.Errorf("API key is required (set %s environment variable)", APIKeyEnvVar))
 	}
 
 	ctx := context.Background()
@@ -37,15 +41,9 @@ func NewProvider(apiKey string) (*Provider, error) {
 	}, nil
 }
 
-// Close cleans up the provider's resources
-// Note: genai.Client does not have a Close method
-func (p *Provider) Close() error {
-	return nil
-}
-
 // Name returns the provider name
 func (p *Provider) Name() string {
-	return "gemini"
+	return ProviderGemini
 }
 
 // DefaultModel returns the default model for Gemini
@@ -54,8 +52,6 @@ func (p *Provider) DefaultModel() string {
 }
 
 // ValidateModel checks if a model is valid
-// Gemini API will fail with helpful error if model is invalid,
-// so we let it fail naturally and wrap the error
 func (p *Provider) ValidateModel(model string) error {
 	return nil // No pre-validation, let API handle it
 }
@@ -74,7 +70,7 @@ func (p *Provider) Generate(ctx context.Context, prompt string, opts ...llm.Opti
 	return llm.RetryWithBackoff(ctx, func(ctx context.Context) (string, error) {
 		resp, err := p.client.Models.GenerateContent(ctx, modelName, genai.Text(prompt), nil)
 		if err != nil {
-			return "", p.wrapError(err)
+			return "", p.wrapError(err, modelName)
 		}
 
 		// Extract text from response
@@ -103,50 +99,26 @@ func (p *Provider) Generate(ctx context.Context, prompt string, opts ...llm.Opti
 }
 
 // wrapError wraps Gemini API errors with appropriate typed errors
-func (p *Provider) wrapError(err error) error {
-	// Check for genai.APIError using type assertion
-	if apiErr, ok := err.(genai.APIError); ok {
-		// Check status first (most reliable)
+func (p *Provider) wrapError(err error, modelName string) error {
+	var apiErr genai.APIError
+	if errors.As(err, &apiErr) {
+		// Prefer checking the structured Status field over string matching
 		switch apiErr.Status {
 		case "INVALID_ARGUMENT":
 			if strings.Contains(apiErr.Message, "API key") {
 				return llm.ErrAuthenticationFailed("gemini", err)
 			}
 		case "RESOURCE_EXHAUSTED":
-			// Rate limit or quota exceeded
-			return llm.ErrRateLimitExceeded("gemini")
+			return llm.ErrRateLimitExceeded("gemini", err)
 		case "NOT_FOUND":
-			// Model not found
-			return llm.ErrModelNotFound("unknown", "gemini")
-		}
-
-		// Fallback to HTTP status code
-		switch apiErr.Code {
-		case 400:
-			if strings.Contains(apiErr.Message, "API key") {
-				return llm.ErrAuthenticationFailed("gemini", err)
+			if strings.Contains(apiErr.Message, "model") {
+				return llm.ErrModelNotFound(modelName, "gemini", err)
 			}
-		case 429:
-			return llm.ErrRateLimitExceeded("gemini")
-		case 404:
-			return llm.ErrModelNotFound("unknown", "gemini")
 		}
+		// For other genai.APIError types, return a structured error message
+		return fmt.Errorf("gemini API error: status %s, code %d, %w", apiErr.Status, apiErr.Code, err)
 	}
 
-	// Fallback to string matching for non-APIError types
-	errMsg := err.Error()
-	if strings.Contains(errMsg, "API key") || strings.Contains(errMsg, "authentication") {
-		return llm.ErrAuthenticationFailed("gemini", err)
-	}
-
-	if strings.Contains(errMsg, "rate limit") || strings.Contains(errMsg, "quota") || strings.Contains(errMsg, "RESOURCE_EXHAUSTED") {
-		return llm.ErrRateLimitExceeded("gemini")
-	}
-
-	if strings.Contains(errMsg, "not found") && strings.Contains(errMsg, "model") {
-		return llm.ErrModelNotFound("unknown", "gemini")
-	}
-
-	// Generic error
+	// Generic fallback for non-APIError types (e.g., network errors)
 	return fmt.Errorf("gemini API error: %w", err)
 }

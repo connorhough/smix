@@ -15,8 +15,8 @@ providers:
     # Path to claude CLI if not in PATH (optional)
     # cli_path: /usr/local/bin/claude
   gemini:
-    # API key (prefer GEMINI_API_KEY environment variable)
-    # api_key: ${GEMINI_API_KEY}
+    # API key (prefer SMIX_GEMINI_API_KEY environment variable)
+    # api_key: ${SMIX_GEMINI_API_KEY}
 
 # Per-command overrides (optional)
 # Uncomment and customize as needed

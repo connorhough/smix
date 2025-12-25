@@ -47,12 +47,13 @@ func Answer(ctx context.Context, question string, cfg *config.ProviderConfig, de
 
 	// Generate response
 	var opts []llm.Option
-	if cfg.Model != "" {
-		opts = append(opts, llm.WithModel(cfg.Model))
-		debugFn("Using model: %s", cfg.Model)
+	resolvedModel := cfg.Model
+	if resolvedModel == "" {
+		resolvedModel = provider.DefaultModel()
 	} else {
-		debugFn("Using default model: %s", provider.DefaultModel())
+		opts = append(opts, llm.WithModel(resolvedModel))
 	}
+	debugFn("Using model: %s", resolvedModel)
 
 	return provider.Generate(ctx, prompt, opts...)
 }

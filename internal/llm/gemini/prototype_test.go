@@ -55,9 +55,9 @@ import (
 //    - resp.PromptFeedback contains prompt-level safety information
 
 func TestPrototypeGeminiSDK(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv(APIKeyEnvVar)
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set")
+		t.Skip("API key not set")
 	}
 
 	ctx := context.Background()
@@ -73,6 +73,10 @@ func TestPrototypeGeminiSDK(t *testing.T) {
 
 	resp, err := client.Models.GenerateContent(ctx, model, prompt, nil)
 	if err != nil {
+		// Skip test if quota is exhausted (HTTP 429)
+		if apiErr, ok := err.(genai.APIError); ok && apiErr.Status == "RESOURCE_EXHAUSTED" {
+			t.Skipf("API quota exhausted: %v", err)
+		}
 		t.Fatalf("Generate failed: %v", err)
 	}
 
@@ -108,9 +112,9 @@ func TestInvalidAPIKey(t *testing.T) {
 
 // TestInvalidModelName verifies error handling for invalid model names
 func TestInvalidModelName(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv(APIKeyEnvVar)
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set")
+		t.Skip("API key not set")
 	}
 
 	ctx := context.Background()
@@ -135,9 +139,9 @@ func TestInvalidModelName(t *testing.T) {
 
 // TestResponseStructure examines the structure of successful responses
 func TestResponseStructure(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv(APIKeyEnvVar)
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set")
+		t.Skip("API key not set")
 	}
 
 	ctx := context.Background()
@@ -153,6 +157,10 @@ func TestResponseStructure(t *testing.T) {
 
 	resp, err := client.Models.GenerateContent(ctx, model, prompt, nil)
 	if err != nil {
+		// Skip test if quota is exhausted (HTTP 429)
+		if apiErr, ok := err.(genai.APIError); ok && apiErr.Status == "RESOURCE_EXHAUSTED" {
+			t.Skipf("API quota exhausted: %v", err)
+		}
 		t.Fatalf("Generate failed: %v", err)
 	}
 
@@ -190,9 +198,9 @@ func TestResponseStructure(t *testing.T) {
 
 // TestContextCancellation verifies if the SDK respects context cancellation
 func TestContextCancellation(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv(APIKeyEnvVar)
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set")
+		t.Skip("API key not set")
 	}
 
 	ctx := context.Background()

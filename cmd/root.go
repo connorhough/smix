@@ -62,6 +62,17 @@ func NewRootCmd() *cobra.Command {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() error {
+	// Determine home directory for default paths
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	xdgConfig := os.Getenv("XDG_CONFIG_HOME")
+	if xdgConfig == "" {
+		xdgConfig = filepath.Join(home, ".config")
+	}
+
 	// Determine config file path
 	var configPath string
 	if cfgFile != "" {
@@ -69,25 +80,21 @@ func initConfig() error {
 		configPath = cfgFile
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Determine default config path
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get user home directory: %w", err)
+		// Check for existing config files in order of preference
+		xdgPath := filepath.Join(xdgConfig, "smix", "config.yaml")
+		dotPath := filepath.Join(home, ".smix.yaml")
+
+		if _, err := os.Stat(xdgPath); err == nil {
+			configPath = xdgPath
+			viper.SetConfigFile(xdgPath)
+		} else if _, err := os.Stat(dotPath); err == nil {
+			configPath = dotPath
+			viper.SetConfigFile(dotPath)
+		} else {
+			// Default to XDG path for new config creation
+			configPath = xdgPath
+			viper.SetConfigFile(xdgPath)
 		}
-
-		xdgConfig := os.Getenv("XDG_CONFIG_HOME")
-		if xdgConfig == "" {
-			xdgConfig = filepath.Join(home, ".config")
-		}
-
-		configPath = filepath.Join(xdgConfig, "smix", "config.yaml")
-
-		// Set up viper search paths
-		viper.AddConfigPath(filepath.Join(xdgConfig, "smix"))
-		viper.AddConfigPath(filepath.Join(home, ".config", "smix"))
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName("config")
 	}
 
 	// Ensure config file exists (create from template if needed)
@@ -113,7 +120,7 @@ func initConfig() error {
 
 // debugLog prints debug information if debug flag is enabled
 func debugLog(format string, args ...interface{}) {
-	if debugFlag {
+	if debugFlag || viper.GetString("log_level") == "debug" {
 		fmt.Fprintf(os.Stderr, "[DEBUG] "+format+"\n", args...)
 	}
 }

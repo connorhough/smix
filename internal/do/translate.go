@@ -37,10 +37,9 @@ Output: fuser -k 3000/tcp
 User's Request: %s`
 
 // Translate converts natural language to shell commands
-func Translate(ctx context.Context, taskDescription string, cfg *config.ProviderConfig, debugFn func(string, ...interface{})) (string, error) {
+func Translate(ctx context.Context, taskDescription string, cfg *config.ProviderConfig, debugFn func(string, ...any)) (string, error) {
 	debugFn("do command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
 
-	// Get provider from factory (API keys handled internally)
 	provider, err := providers.GetProvider(cfg.Provider)
 	if err != nil {
 		return "", fmt.Errorf("failed to get provider: %w", err)
@@ -48,18 +47,18 @@ func Translate(ctx context.Context, taskDescription string, cfg *config.Provider
 
 	debugFn("Using provider: %s", provider.Name())
 
-	// Build prompt
 	prompt := fmt.Sprintf(promptTemplate, taskDescription)
 	debugFn("Prompt length: %d characters", len(prompt))
 
 	// Generate response
 	var opts []llm.Option
-	if cfg.Model != "" {
-		opts = append(opts, llm.WithModel(cfg.Model))
-		debugFn("Using model: %s", cfg.Model)
+	resolvedModel := cfg.Model
+	if resolvedModel == "" {
+		resolvedModel = provider.DefaultModel()
 	} else {
-		debugFn("Using default model: %s", provider.DefaultModel())
+		opts = append(opts, llm.WithModel(resolvedModel))
 	}
+	debugFn("Using model: %s", resolvedModel)
 
 	return provider.Generate(ctx, prompt, opts...)
 }

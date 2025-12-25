@@ -1,3 +1,4 @@
+// Package claude implements the claude Provider interface.
 package claude
 
 import (
@@ -9,6 +10,8 @@ import (
 	"github.com/connorhough/smix/internal/llm"
 )
 
+const ProviderClaude = "claude"
+
 // Provider implements the llm.Provider interface for Claude CLI
 type Provider struct {
 	cliPath string
@@ -16,10 +19,9 @@ type Provider struct {
 
 // NewProvider creates a new Claude provider
 func NewProvider() (*Provider, error) {
-	// Check if claude CLI is available
-	cliPath, err := exec.LookPath("claude")
+	cliPath, err := exec.LookPath(ProviderClaude)
 	if err != nil {
-		return nil, llm.ErrProviderNotAvailable("claude", err)
+		return nil, llm.ErrProviderNotAvailable(ProviderClaude, err)
 	}
 
 	return &Provider{
@@ -29,7 +31,7 @@ func NewProvider() (*Provider, error) {
 
 // Name returns the provider name
 func (p *Provider) Name() string {
-	return "claude"
+	return ProviderClaude
 }
 
 // DefaultModel returns the default model for Claude
@@ -38,8 +40,6 @@ func (p *Provider) DefaultModel() string {
 }
 
 // ValidateModel checks if a model is valid
-// Claude CLI will fail with helpful error if model is invalid,
-// so we let it fail naturally and wrap the error
 func (p *Provider) ValidateModel(model string) error {
 	return nil // No pre-validation, let CLI handle it
 }
@@ -48,27 +48,21 @@ func (p *Provider) ValidateModel(model string) error {
 func (p *Provider) Generate(ctx context.Context, prompt string, opts ...llm.Option) (string, error) {
 	options := llm.BuildOptions(opts)
 
-	// Use provided model or default
 	model := options.Model
 	if model == "" {
 		model = p.DefaultModel()
 	}
 
-	// Execute with retry logic
-	return llm.RetryWithBackoff(ctx, func(ctx context.Context) (string, error) {
-		// Create fresh command for each attempt
-		cmd := exec.CommandContext(ctx, p.cliPath, "--model", model, "-p", prompt)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			// Wrap CLI errors with context
-			return "", fmt.Errorf("claude CLI failed: %w (output: %s)", err, output)
-		}
+	cmd := exec.CommandContext(ctx, p.cliPath, "--model", model, "-p", prompt)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("claude CLI failed: %w (output: %s)", err, output)
+	}
 
-		result := strings.TrimSpace(string(output))
-		if result == "" {
-			return "", fmt.Errorf("claude CLI returned empty response")
-		}
+	result := strings.TrimSpace(string(output))
+	if result == "" {
+		return "", fmt.Errorf("claude CLI returned empty response")
+	}
 
-		return result, nil
-	})
+	return result, nil
 }

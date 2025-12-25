@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -39,7 +40,7 @@ func TestEnsureConfigExists(t *testing.T) {
 	}
 
 	for _, expected := range expectedStrings {
-		if !contains(contentStr, expected) {
+		if !strings.Contains(contentStr, expected) {
 			t.Errorf("config missing expected content: %q", expected)
 		}
 	}
@@ -73,9 +74,4 @@ func TestEnsureConfigExistsIdempotent(t *testing.T) {
 	if string(content) != string(customContent) {
 		t.Error("EnsureConfigExists overwrote existing config")
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
-		(s[:len(substr)] == substr || contains(s[1:], substr)))
 }

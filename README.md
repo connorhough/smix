@@ -83,7 +83,7 @@ On first run, a template configuration file is automatically created with sensib
 
 #### Gemini
 - **Requires:** Google AI Studio API key
-- **Setup:** Set `GEMINI_API_KEY` environment variable
+- **Setup:** Set `SMIX_GEMINI_API_KEY` environment variable
 - **Get API Key:** https://aistudio.google.com/apikey
 - **Models:** `gemini-3-flash-preview`, `gemini-3-pro-preview`
 

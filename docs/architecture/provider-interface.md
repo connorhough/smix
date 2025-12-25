@@ -56,7 +56,8 @@ return llm.ErrAuthenticationFailed("gemini", err)
 
 // Error checking in command:
 if err := provider.Generate(ctx, prompt); err != nil {
-    if errors.Is(err, &llm.ProviderError{}) {
+    var providerErr *llm.ProviderError
+    if errors.As(err, &providerErr) {
         // Handle provider-specific error
     }
 }

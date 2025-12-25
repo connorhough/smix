@@ -23,12 +23,12 @@ func TestErrorTypes(t *testing.T) {
 		},
 		{
 			name:    "rate limit exceeded",
-			err:     ErrRateLimitExceeded("gemini"),
+			err:     ErrRateLimitExceeded("gemini", nil),
 			wantMsg: "rate limit exceeded for provider 'gemini'",
 		},
 		{
 			name:    "model not found",
-			err:     ErrModelNotFound("invalid-model", "gemini"),
+			err:     ErrModelNotFound("invalid-model", "gemini", nil),
 			wantMsg: "model 'invalid-model' not found for provider 'gemini'",
 		},
 	}
