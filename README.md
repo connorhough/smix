@@ -56,6 +56,81 @@ Example:
 smix do "list all files in the current directory"
 ```
 
+### Test the ask command
+```bash
+smix ask "your technical question"
+```
+
+This command answers short technical questions using your configured LLM provider.
+
+Example:
+```bash
+smix ask "what is FastAPI"
+```
+
+## Configuration
+
+smix supports multiple LLM providers. Configuration is stored in `~/.config/smix/config.yaml` (or `$XDG_CONFIG_HOME/smix/config.yaml`).
+
+On first run, a template configuration file is automatically created with sensible defaults.
+
+### Provider Setup
+
+#### Claude (Default)
+- **Requires:** Claude Code CLI installed and authenticated
+- **Install:** Visit https://claude.ai/code
+- **Models:** `haiku`, `sonnet`, `opus`
+
+#### Gemini
+- **Requires:** Google AI Studio API key
+- **Setup:** Set `GEMINI_API_KEY` environment variable
+- **Get API Key:** https://aistudio.google.com/apikey
+- **Models:** `gemini-3-flash-preview`, `gemini-3-pro-preview`
+
+### Configuration Examples
+
+**Global default (all commands use Claude):**
+```yaml
+provider: claude
+model: sonnet
+```
+
+**Per-command customization (fast/cheap for ask/do, smart for pr):**
+```yaml
+provider: claude  # global default
+
+commands:
+  ask:
+    provider: gemini
+    model: gemini-3-flash-preview
+  do:
+    provider: gemini
+    model: gemini-3-flash-preview
+  pr:
+    provider: claude
+    model: sonnet
+```
+
+**Override with flags:**
+```bash
+smix ask --provider gemini --model gemini-3-pro-preview "what is FastAPI"
+smix do --provider claude --model haiku "list all files"
+```
+
+### Configuration Precedence
+
+1. CLI flags (`--provider`, `--model`)
+2. Command-specific config (`commands.ask.provider`)
+3. Global config (`provider`)
+
+### Debug Mode
+
+Use `--debug` flag to see provider selection and configuration resolution:
+
+```bash
+smix ask --debug "what is FastAPI"
+```
+
 ## Tagging Releases
 
 To create a new version tag for releases:
