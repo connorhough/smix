@@ -1,15 +1,14 @@
-// Package ask provides functionality for answering short questions using Claude Code CLI.
+// Package ask provides functionality for answering short questions using LLM providers.
 package ask
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
-	"strings"
 
-	"github.com/connorhough/smix/internal/claude"
+	"github.com/connorhough/smix/internal/config"
+	"github.com/connorhough/smix/internal/llm"
+	"github.com/connorhough/smix/internal/providers"
 )
-
-const modelName = "haiku"
 
 const promptTemplate = `You are a helpful technical assistant that provides concise, accurate answers to user questions.
 
@@ -30,27 +29,31 @@ Output: Yes, mv overwrites files by default without prompting. If a file with th
 
 User's Question: %s`
 
-// Answer processes a user's question and returns a concise answer using Claude Code CLI
-func Answer(question string) (string, error) {
-	// Check if claude CLI is available
-	if err := claude.CheckCLI(); err != nil {
-		return "", err
-	}
+// Answer processes a user's question and returns a concise answer
+func Answer(ctx context.Context, question string, cfg *config.ProviderConfig, debugFn func(string, ...interface{})) (string, error) {
+	debugFn("ask command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
 
-	prompt := fmt.Sprintf(promptTemplate, question)
-
-	cmd := exec.Command("claude", "--model", modelName, "-p", prompt)
-
-	outputBytes, err := cmd.CombinedOutput()
+	// Get provider from factory (API keys handled internally)
+	provider, err := providers.GetProvider(cfg.Provider)
 	if err != nil {
-		return "", fmt.Errorf("claude CLI failed: %w (output: %s)", err, string(outputBytes))
+		return "", fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	// Return trimmed output
-	output := strings.TrimSpace(string(outputBytes))
-	if output == "" {
-		return "", fmt.Errorf("claude CLI returned empty response")
-	}
+	debugFn("Using provider: %s", provider.Name())
 
-	return output, nil
+	// Build prompt
+	prompt := fmt.Sprintf(promptTemplate, question)
+	debugFn("Prompt length: %d characters", len(prompt))
+
+	// Generate response
+	var opts []llm.Option
+	resolvedModel := cfg.Model
+	if resolvedModel == "" {
+		resolvedModel = provider.DefaultModel()
+	} else {
+		opts = append(opts, llm.WithModel(resolvedModel))
+	}
+	debugFn("Using model: %s", resolvedModel)
+
+	return provider.Generate(ctx, prompt, opts...)
 }

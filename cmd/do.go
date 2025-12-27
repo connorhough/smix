@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/do"
 	"github.com/spf13/cobra"
 )
@@ -12,10 +14,10 @@ func NewDoCmd() *cobra.Command {
 	doCmd := &cobra.Command{
 		Use:   "do \"natural language task description\"",
 		Short: "Translate natural language to shell commands",
-		Long: `Translate natural language task descriptions into functional shell commands using Claude Code CLI.
+		Long: `Translate natural language task descriptions into executable shell commands
+using your configured LLM provider.
 
-Requirements:
-- claude CLI installed (Claude Code from https://claude.ai/code)`,
+Supports multiple providers (Claude, Gemini) with per-command configuration.`,
 		Args: cobra.ExactArgs(1),
 		RunE: runDo,
 	}
@@ -26,8 +28,17 @@ Requirements:
 func runDo(cmd *cobra.Command, args []string) error {
 	taskDescription := args[0]
 
-	// Use internal package to translate natural language to shell command
-	shellCommand, err := do.Translate(taskDescription)
+	// Resolve configuration
+	cfg := config.ResolveProviderConfig("do")
+	cfg.ApplyFlags(providerFlag, modelFlag)
+
+	debugLog("Resolved config for 'do': provider=%s, model=%s", cfg.Provider, cfg.Model)
+
+	// Create context
+	ctx := context.Background()
+
+	// Translate
+	shellCommand, err := do.Translate(ctx, taskDescription, cfg, debugLog)
 	if err != nil {
 		return err
 	}
