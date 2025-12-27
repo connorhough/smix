@@ -1,23 +1,17 @@
 // Package do provides functionality for translating natural language descriptions
-// into executable shell commands using Claude Code CLI.
+// into executable shell commands using LLM providers.
 package do
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
-	"strings"
 
-	"github.com/connorhough/smix/internal/claude"
+	"github.com/connorhough/smix/internal/config"
+	"github.com/connorhough/smix/internal/llm"
+	"github.com/connorhough/smix/internal/providers"
 )
 
-// Translate converts natural language to shell commands using Claude Code CLI
-func Translate(taskDescription string) (string, error) {
-	// Check if claude CLI is available
-	if err := claude.CheckCLI(); err != nil {
-		return "", err
-	}
-
-	prompt := fmt.Sprintf(`You are a shell command expert for Unix-like systems (Linux, macOS).
+const promptTemplate = `You are a shell command expert for Unix-like systems (Linux, macOS).
 Your sole purpose is to translate the user's request into a single, functional, and secure shell command.
 
 Requirements:
@@ -40,20 +34,31 @@ Output: du -ah . | sort -rh | head -n 10
 User: "kill the process listening on port 3000"
 Output: fuser -k 3000/tcp
 
-User's Request: %s`, taskDescription)
+User's Request: %s`
 
-	cmd := exec.Command("claude", "-p", prompt)
+// Translate converts natural language to shell commands
+func Translate(ctx context.Context, taskDescription string, cfg *config.ProviderConfig, debugFn func(string, ...any)) (string, error) {
+	debugFn("do command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
 
-	outputBytes, err := cmd.CombinedOutput()
+	provider, err := providers.GetProvider(cfg.Provider)
 	if err != nil {
-		return "", fmt.Errorf("claude CLI failed: %w (output: %s)", err, string(outputBytes))
+		return "", fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	// Return trimmed output
-	output := strings.TrimSpace(string(outputBytes))
-	if output == "" {
-		return "", fmt.Errorf("claude CLI returned empty response")
-	}
+	debugFn("Using provider: %s", provider.Name())
 
-	return output, nil
+	prompt := fmt.Sprintf(promptTemplate, taskDescription)
+	debugFn("Prompt length: %d characters", len(prompt))
+
+	// Generate response
+	var opts []llm.Option
+	resolvedModel := cfg.Model
+	if resolvedModel == "" {
+		resolvedModel = provider.DefaultModel()
+	} else {
+		opts = append(opts, llm.WithModel(resolvedModel))
+	}
+	debugFn("Using model: %s", resolvedModel)
+
+	return provider.Generate(ctx, prompt, opts...)
 }

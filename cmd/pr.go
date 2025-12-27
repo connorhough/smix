@@ -31,6 +31,9 @@ func newPRReviewCmd() *cobra.Command {
 		Use:   "review <repo> <pr_number>",
 		Short: "Fetch and process gemini-code-assist feedback from a GitHub PR",
 		Long: `Fetch gemini-code-assist feedback from a GitHub PR and launch Claude Code sessions to analyze and implement the suggested changes.
+
+Note: This command currently only supports Claude provider in interactive mode.
+
 The repo argument should be in the format "owner/name" (e.g. "octocat/Hello-World").
 The pr_number argument should be the PR number (e.g. 123).
 
