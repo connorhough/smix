@@ -229,14 +229,8 @@ func init() {
 
 ## Code Style
 
-Based on CRUSH.md conventions:
-
-- Use CamelCase for exported names, camelCase for unexported
 - Always check errors explicitly
-- Use `fmt.Errorf()` with `%w` verb for error wrapping
-- Group imports: stdlib, third-party, internal (alphabetically)
-- Use `go fmt` for consistent formatting
-- Comment all exported functions, variables, and types
-- Return errors early rather than deep nesting
+- Comments are for explaining complex functionality or improving future developer's ability to read and understand code quickly. They should be used intentionally, and sparingly so as to not clutter the file.
 - Do not add any emojis or the "genereated with/co-authored by claude" content to commits. It adds too much bloat to the git history
+
 
