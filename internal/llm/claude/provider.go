@@ -17,6 +17,12 @@ type Provider struct {
 	cliPath string
 }
 
+// Verify interface compliance at compile time
+var (
+	_ llm.Provider            = (*Provider)(nil)
+	_ llm.InteractiveProvider = (*Provider)(nil)
+)
+
 // NewProvider creates a new Claude provider
 func NewProvider() (*Provider, error) {
 	cliPath, err := exec.LookPath(ProviderClaude)
@@ -65,4 +71,40 @@ func (p *Provider) Generate(ctx context.Context, prompt string, opts ...llm.Opti
 	}
 
 	return result, nil
+}
+
+// RunInteractive implements the llm.InteractiveProvider interface.
+// It starts an interactive Claude session, connecting the provided IOStreams
+// to the claude CLI process. This allows the CLI to display colored output,
+// handle user interaction, and show real-time streaming responses.
+//
+// IMPORTANT: The caller MUST verify streams.IsInteractive() returns true before
+// calling this method. This implementation does NOT check for TTY - that is the
+// caller's responsibility.
+//
+// This method is suitable for interactive workflows like the pr command where
+// the user needs to see formatted output and potentially interact with Claude.
+// It should NOT be used for commands that need clean, parseable output.
+func (p *Provider) RunInteractive(ctx context.Context, streams *llm.IOStreams, prompt string, opts ...llm.Option) error {
+	options := llm.BuildOptions(opts)
+
+	model := options.Model
+	if model == "" {
+		model = p.DefaultModel()
+	}
+
+	// Build command with model and prompt
+	cmd := exec.CommandContext(ctx, p.cliPath, "--model", model, prompt)
+
+	// Connect provided streams to allow interactive mode
+	// os.Stdin/Stdout/Stderr for production or buffers for testing
+	cmd.Stdin = streams.In
+	cmd.Stdout = streams.Out
+	cmd.Stderr = streams.ErrOut
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("claude CLI interactive mode failed: %w", err)
+	}
+
+	return nil
 }
