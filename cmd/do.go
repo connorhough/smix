@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/do"
@@ -32,13 +32,12 @@ func runDo(cmd *cobra.Command, args []string) error {
 	cfg := config.ResolveProviderConfig("do")
 	cfg.ApplyFlags(providerFlag, modelFlag)
 
-	debugLog("Resolved config for 'do': provider=%s, model=%s", cfg.Provider, cfg.Model)
+	slog.Debug("resolved config for 'do'", "provider", cfg.Provider, "model", cfg.Model)
 
-	// Create context
-	ctx := context.Background()
+	ctx := cmd.Context()
 
 	// Translate
-	shellCommand, err := do.Translate(ctx, taskDescription, cfg, debugLog)
+	shellCommand, err := do.Translate(ctx, taskDescription, cfg)
 	if err != nil {
 		return err
 	}
