@@ -4,6 +4,7 @@ package ask
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/llm"
@@ -30,20 +31,20 @@ Output: Yes, mv overwrites files by default without prompting. If a file with th
 User's Question: %s`
 
 // Answer processes a user's question and returns a concise answer
-func Answer(ctx context.Context, question string, cfg *config.ProviderConfig, debugFn func(string, ...interface{})) (string, error) {
-	debugFn("ask command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
+func Answer(ctx context.Context, question string, cfg *config.ProviderConfig) (string, error) {
+	slog.Debug("ask command config", "provider", cfg.Provider, "model", cfg.Model)
 
-	// Get provider from factory (API keys handled internally)
+	// Get provider from factory
 	provider, err := providers.GetProvider(cfg.Provider)
 	if err != nil {
 		return "", fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	debugFn("Using provider: %s", provider.Name())
+	slog.Debug("resolved provider", "name", provider.Name())
 
 	// Build prompt
 	prompt := fmt.Sprintf(promptTemplate, question)
-	debugFn("Prompt length: %d characters", len(prompt))
+	slog.Debug("prompt constructed", "length", len(prompt))
 
 	// Generate response
 	var opts []llm.Option
@@ -53,7 +54,7 @@ func Answer(ctx context.Context, question string, cfg *config.ProviderConfig, de
 	} else {
 		opts = append(opts, llm.WithModel(resolvedModel))
 	}
-	debugFn("Using model: %s", resolvedModel)
+	slog.Debug("resolved model", "model", resolvedModel)
 
 	return provider.Generate(ctx, prompt, opts...)
 }
