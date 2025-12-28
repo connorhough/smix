@@ -2,17 +2,51 @@
 package pr
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
+
+	"github.com/connorhough/smix/internal/config"
+	"github.com/connorhough/smix/internal/llm"
+	"github.com/connorhough/smix/internal/providers"
 )
 
-// ProcessReviews processes gemini-code-assist feedback files and launches Claude Code sessions for each one
+// ProcessReviews processes gemini-code-assist feedback files and launches interactive provider sessions for each one.
+// Requires a provider that implements InteractiveProvider (e.g., Claude) and a TTY (interactive terminal).
 func ProcessReviews(feedbackDir string) error {
 	if _, err := os.Stat(feedbackDir); os.IsNotExist(err) {
 		return fmt.Errorf("directory '%s' does not exist", feedbackDir)
+	}
+
+	// Create IOStreams for interactive mode
+	// This connects to os.Stdin/Stdout/Stderr and includes TTY detection
+	streams := llm.NewIOStreams()
+
+	// Early check: pr command requires interactive terminal
+	if !streams.IsInteractive() {
+		return fmt.Errorf("pr review command requires an interactive terminal (TTY). This command cannot run in CI/CD pipelines or with redirected stdin")
+	}
+
+	// Get configured provider for pr command
+	// Defaults to "claude" if not explicitly configured
+	cfg := config.ResolveProviderConfig("pr")
+	providerName := cfg.Provider
+	if providerName == "" {
+		providerName = "claude" // Default to claude for backward compatibility
+	}
+
+	provider, err := providers.GetProvider(providerName)
+	if err != nil {
+		return fmt.Errorf("failed to get %s provider: %w", providerName, err)
+	}
+
+	// Verify it supports interactive mode
+	// This type assertion allows any provider to implement InteractiveProvider,
+	// whether by shelling out to a CLI or implementing a REPL loop against an API
+	if _, ok := provider.(llm.InteractiveProvider); !ok {
+		return fmt.Errorf("provider %q does not support interactive mode (required for pr command). Interactive mode requires a provider that can yield control of stdin/stdout/stderr", provider.Name())
 	}
 
 	// Find all feedback markdown files (excluding INDEX.md)
@@ -34,38 +68,57 @@ func ProcessReviews(feedbackDir string) error {
 
 	totalCount := len(filteredFiles)
 	fmt.Printf("Found %d feedback files to process\n", totalCount)
-	fmt.Println("Launching Claude Code sessions for each feedback item...")
+	fmt.Printf("Using provider: %s (interactive mode)\n", provider.Name())
+	fmt.Println("Launching interactive sessions for each feedback item...")
 	fmt.Println()
+
+	ctx := context.Background()
 
 	for i, feedbackFile := range filteredFiles {
 		basename := filepath.Base(feedbackFile)
 
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("--------")
 		fmt.Printf("Processing [%d/%d]: %s\n", i+1, totalCount, basename)
-		fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		fmt.Println("--------")
 		fmt.Println()
 
 		// Extract target file from feedback file
 		targetFile := extractTargetFile(feedbackFile)
 
-		// Launch Claude Code session
-		fmt.Printf("Launching Claude Code...\n")
-		if err := LaunchClaudeCode(feedbackFile, targetFile, i+1, totalCount); err != nil {
-			fmt.Printf("Failed to launch Claude Code: %v\n", err)
+		// Launch interactive session with streams
+		fmt.Printf("Launching interactive session...\n")
+		if err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, i+1, totalCount); err != nil {
+			fmt.Printf("Failed to launch interactive session: %v\n", err)
+			// Continue processing other files even if one fails
 		}
 
 		fmt.Println()
 	}
 
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("✓ All feedback items processed!")
-	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("--------")
+	fmt.Println("All feedback items processed!")
+	fmt.Println("--------")
 
 	return nil
 }
 
-// LaunchClaudeCode opens Claude Code with a prompt to review the feedback and implement changes
-func LaunchClaudeCode(feedbackFile, targetFile string, currentIndex, totalCount int) error {
+// LaunchClaudeCode opens an interactive session with the provider to review feedback and implement changes.
+// The provider must implement llm.InteractiveProvider, and streams must be interactive (TTY).
+//
+// This function performs TTY validation at the call site (not inside the provider) following
+// the IOStreams dependency injection pattern.
+func LaunchClaudeCode(ctx context.Context, provider llm.Provider, streams *llm.IOStreams, feedbackFile, targetFile string, currentIndex, totalCount int) error {
+	// Verify streams are interactive (TTY check at call site, not in provider)
+	if !streams.IsInteractive() {
+		return fmt.Errorf("interactive mode requires a terminal (TTY), but stdin is not a terminal. This can happen when running in CI/CD pipelines or when stdin is redirected")
+	}
+
+	// Verify provider supports interactive mode
+	interactive, ok := provider.(llm.InteractiveProvider)
+	if !ok {
+		return fmt.Errorf("provider %q does not support interactive mode", provider.Name())
+	}
+
 	batchInfo := ""
 	if totalCount > 1 {
 		batchInfo = fmt.Sprintf("\n\n**Note:** This is feedback item %d of %d in this PR. Focus only on this item.", currentIndex, totalCount)
@@ -106,15 +159,8 @@ func LaunchClaudeCode(feedbackFile, targetFile string, currentIndex, totalCount 
 Follow the format specified in the feedback file for consistency.
 `, feedbackFile, targetFileInfo, batchInfo)
 
-	// Launch Claude in interactive mode (without -p flag) with initial prompt
-	cmd := exec.Command("claude", prompt)
-
-	// Connect interactive session io to current terminal
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
+	// Use provider's interactive mode with injected streams
+	return interactive.RunInteractive(ctx, streams, prompt)
 }
 
 // extractTargetFile extracts the target file path from a feedback markdown file
