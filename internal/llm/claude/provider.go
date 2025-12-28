@@ -17,6 +17,12 @@ type Provider struct {
 	cliPath string
 }
 
+// Verify interface compliance at compile time
+var (
+	_ llm.Provider            = (*Provider)(nil)
+	_ llm.InteractiveProvider = (*Provider)(nil)
+)
+
 // NewProvider creates a new Claude provider
 func NewProvider() (*Provider, error) {
 	cliPath, err := exec.LookPath(ProviderClaude)
@@ -67,9 +73,6 @@ func (p *Provider) Generate(ctx context.Context, prompt string, opts ...llm.Opti
 	return result, nil
 }
 
-// Verify interface compliance at compile time
-var _ llm.InteractiveProvider = (*Provider)(nil)
-
 // RunInteractive implements the llm.InteractiveProvider interface.
 // It starts an interactive Claude session, connecting the provided IOStreams
 // to the claude CLI process. This allows the CLI to display colored output,
@@ -91,17 +94,14 @@ func (p *Provider) RunInteractive(ctx context.Context, streams *llm.IOStreams, p
 	}
 
 	// Build command with model and prompt
-	// Note: Using bare prompt as argument (not -p flag) triggers interactive mode
-	// The --model flag selects which Claude model to use for the session
 	cmd := exec.CommandContext(ctx, p.cliPath, "--model", model, prompt)
 
 	// Connect provided streams to allow interactive mode
-	// These may be os.Stdin/Stdout/Stderr (production) or buffers (testing)
+	// os.Stdin/Stdout/Stderr for production or buffers for testing
 	cmd.Stdin = streams.In
 	cmd.Stdout = streams.Out
 	cmd.Stderr = streams.ErrOut
 
-	// Run and wait for completion
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("claude CLI interactive mode failed: %w", err)
 	}

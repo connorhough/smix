@@ -13,28 +13,25 @@ import (
 	"github.com/connorhough/smix/internal/providers"
 )
 
-// ProcessReviews processes gemini-code-assist feedback files and launches interactive provider sessions for each one.
-// Requires a provider that implements InteractiveProvider (e.g., Claude) and a TTY (interactive terminal).
+// ProcessReviews processes pull request feedback files and launches interactive provider sessions for each one.
+// Requires a provider that implements InteractiveProvider and a TTY .
 func ProcessReviews(feedbackDir string) error {
 	if _, err := os.Stat(feedbackDir); os.IsNotExist(err) {
 		return fmt.Errorf("directory '%s' does not exist", feedbackDir)
 	}
 
 	// Create IOStreams for interactive mode
-	// This connects to os.Stdin/Stdout/Stderr and includes TTY detection
 	streams := llm.NewIOStreams()
 
-	// Early check: pr command requires interactive terminal
 	if !streams.IsInteractive() {
 		return fmt.Errorf("pr review command requires an interactive terminal (TTY). This command cannot run in CI/CD pipelines or with redirected stdin")
 	}
 
-	// Get configured provider for pr command
-	// Defaults to "claude" if not explicitly configured
+	// Get configured provider for pr command, default to claude code
 	cfg := config.ResolveProviderConfig("pr")
 	providerName := cfg.Provider
 	if providerName == "" {
-		providerName = "claude" // Default to claude for backward compatibility
+		providerName = "claude"
 	}
 
 	provider, err := providers.GetProvider(providerName)
@@ -42,14 +39,12 @@ func ProcessReviews(feedbackDir string) error {
 		return fmt.Errorf("failed to get %s provider: %w", providerName, err)
 	}
 
-	// Verify it supports interactive mode
-	// This type assertion allows any provider to implement InteractiveProvider,
-	// whether by shelling out to a CLI or implementing a REPL loop against an API
+	// Verify provider supports interactive mode
 	if _, ok := provider.(llm.InteractiveProvider); !ok {
 		return fmt.Errorf("provider %q does not support interactive mode (required for pr command). Interactive mode requires a provider that can yield control of stdin/stdout/stderr", provider.Name())
 	}
 
-	// Find all feedback markdown files (excluding INDEX.md)
+	// Find all feedback markdown files excluding INDEX.md
 	feedbackFiles, err := filepath.Glob(filepath.Join(feedbackDir, "*.md"))
 	if err != nil {
 		return fmt.Errorf("failed to find feedback files: %w", err)
@@ -68,7 +63,7 @@ func ProcessReviews(feedbackDir string) error {
 
 	totalCount := len(filteredFiles)
 	fmt.Printf("Found %d feedback files to process\n", totalCount)
-	fmt.Printf("Using provider: %s (interactive mode)\n", provider.Name())
+	fmt.Printf("Using interactive provider: %s\n", provider.Name())
 	fmt.Println("Launching interactive sessions for each feedback item...")
 	fmt.Println()
 
@@ -82,14 +77,11 @@ func ProcessReviews(feedbackDir string) error {
 		fmt.Println("--------")
 		fmt.Println()
 
-		// Extract target file from feedback file
 		targetFile := extractTargetFile(feedbackFile)
 
-		// Launch interactive session with streams
 		fmt.Printf("Launching interactive session...\n")
 		if err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, i+1, totalCount); err != nil {
 			fmt.Printf("Failed to launch interactive session: %v\n", err)
-			// Continue processing other files even if one fails
 		}
 
 		fmt.Println()
@@ -103,12 +95,8 @@ func ProcessReviews(feedbackDir string) error {
 }
 
 // LaunchClaudeCode opens an interactive session with the provider to review feedback and implement changes.
-// The provider must implement llm.InteractiveProvider, and streams must be interactive (TTY).
-//
-// This function performs TTY validation at the call site (not inside the provider) following
-// the IOStreams dependency injection pattern.
 func LaunchClaudeCode(ctx context.Context, provider llm.Provider, streams *llm.IOStreams, feedbackFile, targetFile string, currentIndex, totalCount int) error {
-	// Verify streams are interactive (TTY check at call site, not in provider)
+	// Verify streams are interactive
 	if !streams.IsInteractive() {
 		return fmt.Errorf("interactive mode requires a terminal (TTY), but stdin is not a terminal. This can happen when running in CI/CD pipelines or when stdin is redirected")
 	}
@@ -129,34 +117,40 @@ func LaunchClaudeCode(ctx context.Context, provider llm.Provider, streams *llm.I
 		targetFileInfo = fmt.Sprintf("\n**Target file to modify (if applying):** `%s`", targetFile)
 	}
 
-	prompt := fmt.Sprintf(`You are an autonomous code review agent. Your task is to process feedback from an automated reviewer and decide whether to apply it.
+	prompt := fmt.Sprintf(`You are a Senior Software Engineer tasked with triaging and applying automated code review feedback.
 
-**Read the feedback file:** %s%s%s
+**Feedback Context:**
+%s%s%s
 
-## Execution Protocol
+## Your Agent Protocol
+You have access to file system tools and linters. You must execute the following steps in order:
 
-1. **Read** the feedback file to understand the suggestion and context.
-2. **Read** the actual target file from disk (not just the snapshot in the feedback file).
-3. **Evaluate** the feedback:
-   - Is it technically correct?
-   - Does it align with the patterns already in this codebase?
-   - Is it high-value (bugs, security, correctness) or low-value (style nits, micro-optimizations)?
-4. **Make your decision:**
-   - If APPLY: Edit the target file directly. Run any relevant linter/formatter if available (e.g., gofmt, eslint).
-   - If REJECT: Do not modify any files.
-5. **Output** your reasoning using the format specified in the feedback file.
+1.  **Investigate:**
+    * Read the feedback context provided above to understand the issue.
+    * **Tool Use:** Use your file reading tool to load the *current* version of the target file from disk. Do not rely solely on the feedback snippet.
+    * If the file does not exist, stop and report "File not found."
 
-## Constraints
+2.  **Evaluate (Think Step):**
+    * Analyze the code. Is the feedback technically correct?
+    * Is this actionable? (Ignore low-value style nits unless they fix a linter violation).
+    * Does the fix introduce security risks or break existing logic?
 
-- **DO NOT** run tests unless explicitly asked
-- **DO NOT** commit changes
-- **DO NOT** modify files other than the target file
-- **DO NOT** add features beyond what the feedback requests
-- If the target file does not exist, output "SKIP: File not found" and explain
+3.  **Execute (If Applying):**
+		* **Tool Use:** Plan out the changes that need to be made to address the feedback
+    * **Tool Use:** Apply the fix to the file using your editing tool if the changes are minimal. If the fix requires medium or large changes, dispatch sub-agents to solve each task, or prompt the user to manually launch sub-agents according to the tasks laid out in the plan.
+    * **Tool Use:** Run the appropriate linter/formatter for this file type (e.g., 'gofmt', 'eslint', 'black') to ensure the new code is valid.
+    * If the linter fails, attempt to self-correct or revert the changes.
 
-## Decision Format
+4.  **Execute (If Rejecting):**
+    * Do not modify any files.
 
-Follow the format specified in the feedback file for consistency.
+## Final Report (Output to User)
+After completing your actions, provide a concise summary in the following format:
+
+**STATUS:** [APPLIED | REJECTED | FAILED]
+**FILE:** [File Path]
+**ACTION TAKEN:** [One sentence summary of what you did, e.g., "Updated regex to fix ReDoS vulnerability and ran gofmt."]
+**REASONING:** [Brief explanation of why you made this decision.]
 `, feedbackFile, targetFileInfo, batchInfo)
 
 	// Use provider's interactive mode with injected streams

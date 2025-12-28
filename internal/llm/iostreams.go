@@ -1,4 +1,3 @@
-// internal/llm/iostreams.go
 package llm
 
 import (
@@ -10,12 +9,6 @@ import (
 )
 
 // IOStreams abstracts standard I/O for testability and dependency injection.
-// Inspired by cli/cli's iostreams package.
-//
-// This pattern allows:
-// - Unit tests to inject mock streams instead of using os.Stdin/Stdout/Stderr
-// - TTY detection to be mocked for testing interactive vs non-interactive scenarios
-// - Commands to be composable without tight coupling to global state
 type IOStreams struct {
 	In     io.Reader
 	Out    io.Writer
@@ -27,7 +20,6 @@ type IOStreams struct {
 }
 
 // NewIOStreams creates IOStreams connected to os.Stdin/Stdout/Stderr.
-// Use this in production code for real terminal I/O.
 func NewIOStreams() *IOStreams {
 	return &IOStreams{
 		In:             os.Stdin,
@@ -39,8 +31,6 @@ func NewIOStreams() *IOStreams {
 }
 
 // IsInteractive returns true if stdin is a TTY (terminal).
-// This is the proper place to check for interactive capability,
-// not inside provider implementations.
 func (s *IOStreams) IsInteractive() bool {
 	if s.isTerminalFunc == nil {
 		return false
