@@ -5,6 +5,7 @@ package do
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/llm"
@@ -37,18 +38,18 @@ Output: fuser -k 3000/tcp
 User's Request: %s`
 
 // Translate converts natural language to shell commands
-func Translate(ctx context.Context, taskDescription string, cfg *config.ProviderConfig, debugFn func(string, ...any)) (string, error) {
-	debugFn("do command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
+func Translate(ctx context.Context, taskDescription string, cfg *config.ProviderConfig) (string, error) {
+	slog.Debug("do command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
 
 	provider, err := providers.GetProvider(cfg.Provider)
 	if err != nil {
 		return "", fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	debugFn("Using provider: %s", provider.Name())
+	slog.Debug("using provider", "name", provider.Name())
 
 	prompt := fmt.Sprintf(promptTemplate, taskDescription)
-	debugFn("Prompt length: %d characters", len(prompt))
+	slog.Debug("prompt constructed", "length", len(prompt))
 
 	// Generate response
 	var opts []llm.Option
@@ -58,7 +59,8 @@ func Translate(ctx context.Context, taskDescription string, cfg *config.Provider
 	} else {
 		opts = append(opts, llm.WithModel(resolvedModel))
 	}
-	debugFn("Using model: %s", resolvedModel)
+
+	slog.Debug("resolved model", "model", resolvedModel)
 
 	return provider.Generate(ctx, prompt, opts...)
 }

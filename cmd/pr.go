@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -67,8 +66,9 @@ To process an existing pr_review folder without fetching, use the --dir flag.`,
 					return fmt.Errorf("invalid PR number: %w", err)
 				}
 
+				ctx := cmd.Context()
+
 				// Create GitHub client
-				ctx := context.Background()
 				var client *github.Client
 				if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 					ts := oauth2.StaticTokenSource(

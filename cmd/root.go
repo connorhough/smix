@@ -2,7 +2,9 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -21,19 +23,18 @@ var (
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.go. It only needs to happen once to the rootCmd.
-func Execute() error {
+func Execute(ctx context.Context) error {
 	if rootCmd == nil {
 		rootCmd = NewRootCmd()
 	}
-	return rootCmd.Execute()
+	return rootCmd.ExecuteContext(ctx)
 }
 
 // NewRootCmd creates and returns the root command for smix
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           "smix",
-		Short:         "I'm smix",
+		Short:         "Hi I'm smix",
 		Long:          `Hi I'm smix!`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -54,7 +55,12 @@ func NewRootCmd() *cobra.Command {
 
 	// PersistentPreRun handles configuration initialization
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		return initConfig()
+		if err := initConfig(); err != nil {
+			return err
+		}
+
+		setupLogging()
+		return nil
 	}
 
 	return rootCmd
@@ -102,7 +108,7 @@ func initConfig() error {
 		return fmt.Errorf("failed to initialize config: %w", err)
 	}
 
-	debugLog("Using config file: %s", configPath)
+	slog.Debug("found config", "path", configPath)
 
 	// Read in environment variables that match
 	viper.SetEnvPrefix("SMIX")
@@ -113,14 +119,21 @@ func initConfig() error {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 
-	debugLog("Config loaded successfully")
+	slog.Debug("Config loaded successfully")
 
 	return nil
 }
 
-// debugLog prints debug information if debug flag is enabled
-func debugLog(format string, args ...interface{}) {
+func setupLogging() {
+	level := slog.LevelInfo
+
 	if debugFlag || viper.GetString("log_level") == "debug" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] "+format+"\n", args...)
+		level = slog.LevelDebug
 	}
+
+	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: level,
+	})
+
+	slog.SetDefault(slog.New(handler))
 }

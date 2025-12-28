@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/connorhough/smix/internal/ask"
 	"github.com/connorhough/smix/internal/config"
@@ -12,7 +12,7 @@ import (
 // NewAskCmd creates and returns the ask command
 func NewAskCmd() *cobra.Command {
 	askCmd := &cobra.Command{
-		Use:   "ask \"your question\"",
+		Use:   "ask \"[question]\"",
 		Short: "Ask short technical questions and get concise answers",
 		Long: `Ask short technical questions and get concise answers using your configured LLM provider.
 
@@ -36,19 +36,21 @@ func runAsk(cmd *cobra.Command, args []string) error {
 	cfg := config.ResolveProviderConfig("ask")
 	cfg.ApplyFlags(providerFlag, modelFlag)
 
-	debugLog("Resolved config for 'ask': provider=%s, model=%s", cfg.Provider, cfg.Model)
+	slog.Debug("resolved config", "provider", cfg.Provider, "model", cfg.Model)
 
-	// Create context
-	ctx := context.Background()
+	ctx := cmd.Context()
 
 	// Get answer
-	answer, err := ask.Answer(ctx, question, cfg, debugLog)
+	answer, err := ask.Answer(ctx, question, cfg)
 	if err != nil {
 		return err
 	}
 
 	// Print the answer
-	fmt.Fprintln(cmd.OutOrStdout(), answer)
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), answer)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
