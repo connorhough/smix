@@ -45,12 +45,15 @@ The codebase follows strict separation of concerns:
   - Each command file defines Cobra command structure and delegates to internal packages
 
 - **internal/**: All business logic
-  - `gca/`: GitHub PR code review processing with gemini-code-assist bot
+  - `pr/`: GitHub PR code review processing with gemini-code-assist bot
     - `fetch.go`: Fetches PR review comments and creates prompt files
     - `process.go`: Generates patches via LLM and launches Claude Code sessions
   - `do/`: Natural language to shell command translation
-  - `ask/`: Answers short technical questions using Claude Code CLI
-  - `llm/`: Shared LLM client (Cerebras API via OpenAI SDK)
+  - `ask/`: Answers short technical questions
+  - `llm/`: Provider interface, error types, retry logic, and options
+  - `llm/claude/`: Claude provider implementation (wraps Claude Code CLI)
+  - `llm/gemini/`: Gemini provider implementation (uses Google AI SDK)
+  - `providers/`: Provider factory with caching
   - `config/`: Configuration management wrapper around Viper
   - `version/`: Version info injected at build time
 
@@ -61,7 +64,15 @@ Uses Viper with XDG-compliant configuration paths:
 2. `~/.config/smix/config.yaml`
 3. `~/.smix.yaml`
 
-Environment variables prefixed with `SMIX_` override config file values.
+Config files are automatically created from a template if they don't exist. Environment variables prefixed with `SMIX_` override config file values.
+
+### Global Flags
+
+The root command supports these persistent flags across all subcommands:
+- `--config <path>`: Specify custom config file location
+- `--debug`: Enable debug output (overrides config `log_level`)
+- `--provider <name>`: Override LLM provider (claude, gemini)
+- `--model <name>`: Override model name
 
 ### Version Injection Pattern
 
@@ -74,13 +85,13 @@ This allows tracking exact builds without hardcoding versions.
 
 ## Key Commands
 
-### gca (Gemini Code Assist)
+### pr
 
 Fetches code review feedback from gemini-code-assist bot on GitHub PRs and launches interactive Claude Code sessions to analyze and implement the suggested changes.
 
 ```bash
-smix gca review owner/repo pr_number
-smix gca review --dir gca_review_pr123  # Process existing feedback directory
+smix pr review owner/repo pr_number
+smix pr review --dir pr_review_pr123  # Process existing feedback directory
 ```
 
 **Requirements:**
@@ -121,7 +132,7 @@ smix do --provider gemini "find large files"
 **Requirements:**
 - Configured LLM provider (Claude or Gemini)
 - Default: Claude (requires Claude Code CLI)
-- Gemini: Set `GEMINI_API_KEY` environment variable
+- Gemini: Set `SMIX_GEMINI_API_KEY` environment variable
 
 Generates safe, POSIX-compliant shell commands using your configured provider.
 
@@ -137,9 +148,25 @@ smix ask --provider gemini "how do I list all running processes on Linux"
 **Requirements:**
 - Configured LLM provider (Claude or Gemini)
 - Default: Claude (requires Claude Code CLI)
-- Gemini: Set `GEMINI_API_KEY` environment variable
+- Gemini: Set `SMIX_GEMINI_API_KEY` environment variable
 
 Great for quick lookups and technical questions where you need a brief, informative answer without searching documentation or web resources.
+
+### config
+
+Manage smix configuration values.
+
+```bash
+smix config get <key>     # Get a configuration value
+smix config set <key> <value>  # Set a configuration value
+```
+
+**Examples:**
+```bash
+smix config get provider           # Get current provider
+smix config set provider gemini    # Set global provider to Gemini
+smix config set commands.ask.model haiku  # Set ask command to use Haiku model
+```
 
 ## LLM Integration
 
@@ -162,7 +189,7 @@ smix supports multiple LLM providers through a unified interface:
 **Gemini (via Google AI SDK):**
 - Uses `google.golang.org/genai` SDK
 - Models: `gemini-3-flash-preview`, `gemini-3-pro-preview`
-- Requires: `GEMINI_API_KEY` environment variable
+- Requires: `SMIX_GEMINI_API_KEY` environment variable
 
 ### Adding New LLM-Powered Features
 
@@ -176,9 +203,9 @@ import (
     "github.com/connorhough/smix/internal/providers"
 )
 
-// Get provider from factory
+// Get provider from factory (API keys retrieved from env vars automatically)
 cfg := config.ResolveProviderConfig("commandname")
-provider, err := providers.GetProvider(cfg.Provider, apiKey)
+provider, err := providers.GetProvider(cfg.Provider)
 
 // Generate response
 opts := []llm.Option{llm.WithModel(cfg.Model)}
