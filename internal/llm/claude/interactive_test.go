@@ -32,7 +32,6 @@ func TestClaudeProvider_RunInteractive_UsesStreams(t *testing.T) {
 
 	// This will call "echo test-prompt" which should output to our buffer
 	err := p.RunInteractive(ctx, streams, "test-prompt", llm.WithModel(ModelHaiku))
-
 	if err != nil {
 		// echo might fail in some test environments, which is okay
 		t.Logf("RunInteractive() returned error: %v", err)
@@ -42,7 +41,7 @@ func TestClaudeProvider_RunInteractive_UsesStreams(t *testing.T) {
 	// If it succeeded, verify output was captured
 	output := out.String()
 	if !strings.Contains(output, "test-prompt") {
-		t.Logf("expected output to contain 'test-prompt', got: %s", output)
+		t.Errorf("expected output to contain 'test-prompt', got: %q", output)
 	}
 }
 
@@ -61,7 +60,6 @@ func TestClaudeProvider_RunInteractive_Integration(t *testing.T) {
 
 	ctx := context.Background()
 	err = p.RunInteractive(ctx, streams, "Say 'interactive test' and nothing else", llm.WithModel(ModelHaiku))
-
 	// In a real TTY, this should work
 	if err != nil {
 		t.Errorf("RunInteractive() failed in TTY environment: %v", err)

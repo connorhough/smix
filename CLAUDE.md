@@ -191,6 +191,70 @@ Key benefits:
 - Provider caching for performance
 - Configurable per command or globally
 
+### Interactive Provider Capability
+
+The LLM system supports an optional `InteractiveProvider` extension interface using Go's capability pattern (similar to `io.ReaderFrom` in the standard library).
+
+**Architecture:**
+- Follows the **IOStreams dependency injection pattern** inspired by the GitHub CLI (`cli/cli`)
+- TTY detection occurs at call sites (not inside providers) for better testability
+- All I/O is injected via `llm.IOStreams` struct (never uses `os.Stdin/Stdout` directly)
+
+**InteractiveProvider Interface:**
+- Allows providers to take over I/O streams for rich terminal interaction
+- Supports colored output, progress indicators, and user input
+- Currently implemented by: Claude CLI provider
+- Currently used by: `pr` command for interactive code review sessions
+
+**Design Rationale:**
+- **Output Control**: Commands that require clean, parseable output (`ask`, `do`) only use `Provider.Generate()` to ensure output can be piped and scripted reliably
+- **Interactive Workflows**: Commands that benefit from rich terminal interaction (`pr`) can detect and use `InteractiveProvider` when available
+- **Progressive Enhancement**: Providers implement interactive mode optionally; base functionality works for all providers
+- **Testability**: IOStreams injection allows full unit testing without real TTY
+
+**Implementation Pattern:**
+```go
+// Create IOStreams (production: connects to os.Stdin/Stdout/Stderr)
+streams := llm.NewIOStreams()
+
+// Check for TTY at call site (not in provider)
+if !streams.IsInteractive() {
+    return fmt.Errorf("interactive mode requires a terminal")
+}
+
+// Get provider from factory
+provider, err := providers.GetProvider("claude")
+
+// Check for interactive capability
+if interactive, ok := provider.(llm.InteractiveProvider); ok {
+    // Use interactive mode with injected streams
+    return interactive.RunInteractive(ctx, streams, prompt, opts...)
+}
+
+// Fallback or error if interactive mode is required
+return fmt.Errorf("provider does not support interactive mode")
+```
+
+**Testing Pattern:**
+```go
+// Unit tests use test streams with buffers
+streams, in, out := llm.TestIOStreams()
+
+// Test with non-TTY environment
+streams, _, _ := llm.TestIOStreamsNonInteractive()
+
+// Provider receives injected streams (testable!)
+err := provider.RunInteractive(ctx, streams, prompt, opts...)
+```
+
+**Benefits:**
+- **Polymorphism**: Single provider interface with optional extensions
+- **No Code Duplication**: No need for separate API vs CLI provider hierarchies
+- **Backward Compatibility**: Existing providers work without changes
+- **Type Safety**: Compile-time verification of capability interfaces
+- **Testability**: Full unit test coverage without requiring real TTY
+- **Follows Go Idioms**: Matches patterns from stdlib and mature CLI tools (gh, hugo)
+
 ## Adding New Commands
 
 Follow the established pattern to maintain separation of concerns:

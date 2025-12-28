@@ -20,6 +20,9 @@ type Provider struct {
 	apiKey string
 }
 
+// Verify interface compliance at compile time
+var _ llm.Provider = (*Provider)(nil)
+
 // NewProvider creates a new Gemini provider
 func NewProvider(apiKey string) (*Provider, error) {
 	if apiKey == "" {

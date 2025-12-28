@@ -9,6 +9,9 @@ type ProviderError struct {
 	Err      error
 }
 
+// Verify interface compliance at compile time
+var _ error = (*ProviderError)(nil)
+
 func (e *ProviderError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %v", e.Msg, e.Err)
