@@ -89,8 +89,8 @@ To process an existing pr_review folder without fetching, use the --dir flag.`,
 				}
 			}
 
-			// Process reviews
-			if err := pr.ProcessReviews(outputDir); err != nil {
+			// Process reviews with provider override from flag
+			if err := pr.ProcessReviews(outputDir, providerFlag); err != nil {
 				return fmt.Errorf("failed to process reviews: %w", err)
 			}
 

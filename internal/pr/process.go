@@ -14,8 +14,9 @@ import (
 )
 
 // ProcessReviews processes pull request feedback files and launches interactive provider sessions for each one.
-// Requires a provider that implements InteractiveProvider and a TTY .
-func ProcessReviews(feedbackDir string) error {
+// Requires a provider that implements InteractiveProvider and a TTY.
+// If providerOverride is not empty, it will be used instead of the configured provider.
+func ProcessReviews(feedbackDir string, providerOverride string) error {
 	if _, err := os.Stat(feedbackDir); os.IsNotExist(err) {
 		return fmt.Errorf("directory '%s' does not exist", feedbackDir)
 	}
@@ -28,10 +29,15 @@ func ProcessReviews(feedbackDir string) error {
 	}
 
 	// Get configured provider for pr command, default to claude code
-	cfg := config.ResolveProviderConfig("pr")
-	providerName := cfg.Provider
-	if providerName == "" {
-		providerName = "claude"
+	var providerName string
+	if providerOverride != "" {
+		providerName = providerOverride
+	} else {
+		cfg := config.ResolveProviderConfig("pr")
+		providerName = cfg.Provider
+		if providerName == "" {
+			providerName = "claude"
+		}
 	}
 
 	provider, err := providers.GetProvider(providerName)
