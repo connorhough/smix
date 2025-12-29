@@ -108,3 +108,23 @@ func TestGeminiProvider_RunInteractive_Integration(t *testing.T) {
 		t.Errorf("RunInteractive() failed in TTY environment: %v", err)
 	}
 }
+
+func TestGeminiProvider_HasInteractiveSupport(t *testing.T) {
+	tests := []struct {
+		name     string
+		cliPath  string
+		expected bool
+	}{
+		{"with CLI", "gemini", true},
+		{"without CLI", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &Provider{cliPath: tt.cliPath}
+			if got := p.HasInteractiveSupport(); got != tt.expected {
+				t.Errorf("HasInteractiveSupport() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}

@@ -173,3 +173,9 @@ func (p *Provider) RunInteractive(ctx context.Context, streams *llm.IOStreams, p
 
 	return nil
 }
+
+// HasInteractiveSupport returns true if the gemini CLI is available for interactive sessions.
+// This can be used to provide better error messages before attempting interactive mode.
+func (p *Provider) HasInteractiveSupport() bool {
+	return p.cliPath != ""
+}
