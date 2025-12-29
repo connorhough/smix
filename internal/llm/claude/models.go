@@ -10,5 +10,5 @@ const (
 
 // DefaultModel returns the default Claude model
 func DefaultModel() string {
-	return ModelSonnet
+	return ModelHaiku
 }

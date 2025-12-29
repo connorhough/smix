@@ -17,8 +17,8 @@ func TestClaudeProvider_Name(t *testing.T) {
 
 func TestClaudeProvider_DefaultModel(t *testing.T) {
 	p := &Provider{}
-	if got := p.DefaultModel(); got != ModelSonnet {
-		t.Errorf("DefaultModel() = %q, want %q", got, ModelSonnet)
+	if got := p.DefaultModel(); got != ModelHaiku {
+		t.Errorf("DefaultModel() = %q, want %q", got, ModelHaiku)
 	}
 }
 
