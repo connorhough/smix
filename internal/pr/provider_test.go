@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/llm"
 )
 
@@ -61,8 +62,9 @@ func TestLaunchInteractiveSession_Success(t *testing.T) {
 	ctx := context.Background()
 	feedbackFile := "test_feedback.md"
 	targetFile := "main.go"
+	cfg := &config.ProviderConfig{Provider: "mock", Model: ""}
 
-	err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, 1, 3)
+	err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, 1, 3, cfg)
 	if err != nil {
 		t.Errorf("LaunchClaudeCode() error = %v", err)
 	}
@@ -99,8 +101,9 @@ func TestLaunchInteractiveSession_NonInteractiveProvider(t *testing.T) {
 	wrapper := &basicProviderWrapper{name: "basic"}
 	streams, _, _ := llm.TestIOStreams()
 	ctx := context.Background()
+	cfg := &config.ProviderConfig{Provider: "basic", Model: ""}
 
-	err := LaunchClaudeCode(ctx, wrapper, streams, "test.md", "main.go", 1, 1)
+	err := LaunchClaudeCode(ctx, wrapper, streams, "test.md", "main.go", 1, 1, cfg)
 	if err == nil {
 		t.Error("expected error for non-interactive provider")
 	}
@@ -135,8 +138,9 @@ func TestLaunchInteractiveSession_NonInteractiveStreams(t *testing.T) {
 	mock := &mockInteractiveProvider{}
 	streams, _, _ := llm.TestIOStreamsNonInteractive()
 	ctx := context.Background()
+	cfg := &config.ProviderConfig{Provider: "mock", Model: ""}
 
-	err := LaunchClaudeCode(ctx, mock, streams, "test.md", "main.go", 1, 1)
+	err := LaunchClaudeCode(ctx, mock, streams, "test.md", "main.go", 1, 1, cfg)
 	if err == nil {
 		t.Error("expected error for non-interactive streams")
 	}

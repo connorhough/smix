@@ -14,8 +14,8 @@ import (
 )
 
 // ProcessReviews processes pull request feedback files and launches interactive provider sessions for each one.
-// Requires a provider that implements InteractiveProvider and a TTY .
-func ProcessReviews(feedbackDir string) error {
+// Requires a provider that implements InteractiveProvider and a TTY.
+func ProcessReviews(ctx context.Context, feedbackDir string, cfg *config.ProviderConfig) error {
 	if _, err := os.Stat(feedbackDir); os.IsNotExist(err) {
 		return fmt.Errorf("directory '%s' does not exist", feedbackDir)
 	}
@@ -27,14 +27,13 @@ func ProcessReviews(feedbackDir string) error {
 		return fmt.Errorf("pr review command requires an interactive terminal (TTY). This command cannot run in CI/CD pipelines or with redirected stdin")
 	}
 
-	// Get configured provider for pr command, default to claude code
-	cfg := config.ResolveProviderConfig("pr")
+	// Get provider name from config, default to claude
 	providerName := cfg.Provider
 	if providerName == "" {
 		providerName = "claude"
 	}
 
-	provider, err := providers.GetProvider(providerName)
+	provider, err := providers.GetProvider(ctx, providerName)
 	if err != nil {
 		return fmt.Errorf("failed to get %s provider: %w", providerName, err)
 	}
@@ -67,8 +66,6 @@ func ProcessReviews(feedbackDir string) error {
 	fmt.Println("Launching interactive sessions for each feedback item...")
 	fmt.Println()
 
-	ctx := context.Background()
-
 	for i, feedbackFile := range filteredFiles {
 		basename := filepath.Base(feedbackFile)
 
@@ -80,7 +77,7 @@ func ProcessReviews(feedbackDir string) error {
 		targetFile := extractTargetFile(feedbackFile)
 
 		fmt.Printf("Launching interactive session...\n")
-		if err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, i+1, totalCount); err != nil {
+		if err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, i+1, totalCount, cfg); err != nil {
 			fmt.Printf("Failed to launch interactive session: %v\n", err)
 		}
 
@@ -95,7 +92,7 @@ func ProcessReviews(feedbackDir string) error {
 }
 
 // LaunchClaudeCode opens an interactive session with the provider to review feedback and implement changes.
-func LaunchClaudeCode(ctx context.Context, provider llm.Provider, streams *llm.IOStreams, feedbackFile, targetFile string, currentIndex, totalCount int) error {
+func LaunchClaudeCode(ctx context.Context, provider llm.Provider, streams *llm.IOStreams, feedbackFile, targetFile string, currentIndex, totalCount int, cfg *config.ProviderConfig) error {
 	// Verify streams are interactive
 	if !streams.IsInteractive() {
 		return fmt.Errorf("interactive mode requires a terminal (TTY), but stdin is not a terminal. This can happen when running in CI/CD pipelines or when stdin is redirected")
@@ -154,7 +151,11 @@ After completing your actions, provide a concise summary in the following format
 `, feedbackFile, targetFileInfo, batchInfo)
 
 	// Use provider's interactive mode with injected streams
-	return interactive.RunInteractive(ctx, streams, prompt)
+	var opts []llm.Option
+	if cfg.Model != "" {
+		opts = append(opts, llm.WithModel(cfg.Model))
+	}
+	return interactive.RunInteractive(ctx, streams, prompt, opts...)
 }
 
 // extractTargetFile extracts the target file path from a feedback markdown file

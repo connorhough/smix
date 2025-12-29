@@ -6,7 +6,7 @@ import (
 
 func TestPRCommandStructure(t *testing.T) {
 	root := NewRootCmd()
-	
+
 	// Check if 'pr' command exists
 	prCmd, _, err := root.Find([]string{"pr"})
 	if err != nil {
@@ -24,7 +24,7 @@ func TestPRCommandStructure(t *testing.T) {
 	if !reviewCmd.HasAvailableFlags() {
 		t.Error("expected 'pr review' to have available flags")
 	}
-	
+
 	flag := reviewCmd.Flags().Lookup("dir")
 	if flag == nil {
 		t.Error("expected 'pr review' to have 'dir' flag")

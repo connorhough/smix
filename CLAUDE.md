@@ -186,10 +186,12 @@ smix supports multiple LLM providers through a unified interface:
 - Models: `haiku`, `sonnet`, `opus`
 - Requires: Claude Code CLI installed and authenticated
 
-**Gemini (via Google AI SDK):**
-- Uses `google.golang.org/genai` SDK
+**Gemini (via Google AI SDK + CLI):**
+- Uses `google.golang.org/genai` SDK for Generate()
+- Uses `gemini` CLI for interactive mode (RunInteractive)
 - Models: `gemini-3-flash-preview`, `gemini-3-pro-preview`
 - Requires: `SMIX_GEMINI_API_KEY` environment variable
+- Interactive mode requires: `npm install -g @google/gemini-cli`
 
 ### Adding New LLM-Powered Features
 
@@ -230,7 +232,7 @@ The LLM system supports an optional `InteractiveProvider` extension interface us
 **InteractiveProvider Interface:**
 - Allows providers to take over I/O streams for rich terminal interaction
 - Supports colored output, progress indicators, and user input
-- Currently implemented by: Claude CLI provider
+- Currently implemented by: Claude CLI provider, Gemini provider (when CLI available)
 - Currently used by: `pr` command for interactive code review sessions
 
 **Design Rationale:**

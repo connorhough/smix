@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/connorhough/smix/internal/config"
 	"github.com/connorhough/smix/internal/pr"
 	"github.com/google/go-github/github"
 	"github.com/spf13/cobra"
@@ -89,8 +90,12 @@ To process an existing pr_review folder without fetching, use the --dir flag.`,
 				}
 			}
 
+			// Resolve configuration
+			cfg := config.ResolveProviderConfig("pr")
+			cfg.ApplyFlags(providerFlag, modelFlag)
+
 			// Process reviews
-			if err := pr.ProcessReviews(outputDir); err != nil {
+			if err := pr.ProcessReviews(cmd.Context(), outputDir, cfg); err != nil {
 				return fmt.Errorf("failed to process reviews: %w", err)
 			}
 

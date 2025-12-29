@@ -2,6 +2,7 @@
 package providers
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -25,7 +26,7 @@ func NewFactory() *Factory {
 }
 
 // GetProvider returns a provider by name
-func (f *Factory) GetProvider(name string) (llm.Provider, error) {
+func (f *Factory) GetProvider(ctx context.Context, name string) (llm.Provider, error) {
 	f.mu.RLock()
 	if provider, ok := f.cache[name]; ok {
 		f.mu.RUnlock()
@@ -48,7 +49,7 @@ func (f *Factory) GetProvider(name string) (llm.Provider, error) {
 		provider, err = claude.NewProvider()
 	case gemini.ProviderGemini:
 		apiKey := os.Getenv(gemini.APIKeyEnvVar)
-		provider, err = gemini.NewProvider(apiKey)
+		provider, err = gemini.NewProvider(ctx, apiKey)
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
 	}
@@ -66,6 +67,6 @@ func (f *Factory) GetProvider(name string) (llm.Provider, error) {
 var globalFactory = NewFactory()
 
 // GetProvider is a convenience function that uses the global factory
-func GetProvider(name string) (llm.Provider, error) {
-	return globalFactory.GetProvider(name)
+func GetProvider(ctx context.Context, name string) (llm.Provider, error) {
+	return globalFactory.GetProvider(ctx, name)
 }
