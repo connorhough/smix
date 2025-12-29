@@ -40,9 +40,20 @@ func TestGeminiProvider_ValidateModel(t *testing.T) {
 
 func TestNewProvider_MissingAPIKey(t *testing.T) {
 	ctx := context.Background()
-	_, err := NewProvider(ctx, "")
+	p, err := NewProvider(ctx, "")
+
+	// Provider creation succeeds if CLI is available
 	if err == nil {
-		t.Error("expected error when API key is empty")
+		if p.cliPath == "" {
+			t.Error("provider created without API key or CLI - should have failed")
+		}
+		// Valid: CLI-only mode
+		return
+	}
+
+	// If error, should be authentication error (neither API key nor CLI)
+	if !strings.Contains(err.Error(), "API key is required") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
