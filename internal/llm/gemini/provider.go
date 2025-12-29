@@ -23,7 +23,10 @@ type Provider struct {
 }
 
 // Verify interface compliance at compile time
-var _ llm.Provider = (*Provider)(nil)
+var (
+	_ llm.Provider            = (*Provider)(nil)
+	_ llm.InteractiveProvider = (*Provider)(nil)
+)
 
 // NewProvider creates a new Gemini provider
 func NewProvider(apiKey string) (*Provider, error) {
@@ -130,4 +133,43 @@ func (p *Provider) wrapError(err error, modelName string) error {
 
 	// Generic fallback for non-APIError types (e.g., network errors)
 	return fmt.Errorf("gemini API error: %w", err)
+}
+
+// RunInteractive implements the llm.InteractiveProvider interface.
+// It starts an interactive Gemini CLI session, connecting the provided IOStreams
+// to the gemini CLI process. This allows the CLI to display colored output,
+// handle user interaction, and show real-time streaming responses.
+//
+// IMPORTANT: The caller MUST verify streams.IsInteractive() returns true before
+// calling this method. This implementation does NOT check for TTY - that is the
+// caller's responsibility.
+//
+// Returns an error if the gemini CLI is not installed. Install with:
+// npm install -g @google/gemini-cli
+func (p *Provider) RunInteractive(ctx context.Context, streams *llm.IOStreams, prompt string, opts ...llm.Option) error {
+	if p.cliPath == "" {
+		return fmt.Errorf("gemini CLI not available for interactive mode; install with: npm install -g @google/gemini-cli")
+	}
+
+	options := llm.BuildOptions(opts)
+
+	model := options.Model
+	if model == "" {
+		model = p.DefaultModel()
+	}
+
+	// Build command with model and prompt
+	// gemini CLI uses -m for model and accepts prompt as positional argument
+	cmd := exec.CommandContext(ctx, p.cliPath, "-m", model, prompt)
+
+	// Connect provided streams to allow interactive mode
+	cmd.Stdin = streams.In
+	cmd.Stdout = streams.Out
+	cmd.Stderr = streams.ErrOut
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("gemini CLI interactive mode failed: %w", err)
+	}
+
+	return nil
 }
