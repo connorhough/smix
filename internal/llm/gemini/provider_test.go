@@ -3,28 +3,34 @@ package gemini
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/connorhough/smix/internal/llm"
 )
 
 func TestGeminiProvider_Name(t *testing.T) {
+	ctx := context.Background()
 	apiKey := "test-key"
-	p, _ := NewProvider(apiKey)
+	p, _ := NewProvider(ctx, apiKey)
 	if got := p.Name(); got != "gemini" {
 		t.Errorf("Name() = %q, want %q", got, "gemini")
 	}
 }
 
 func TestGeminiProvider_DefaultModel(t *testing.T) {
+	ctx := context.Background()
 	apiKey := "test-key"
-	p, _ := NewProvider(apiKey)
+	p, _ := NewProvider(ctx, apiKey)
 	if got := p.DefaultModel(); got != ModelFlash {
 		t.Errorf("DefaultModel() = %q, want %q", got, ModelFlash)
 	}
 }
 
 func TestGeminiProvider_ValidateModel(t *testing.T) {
+	ctx := context.Background()
 	apiKey := "test-key"
-	p, _ := NewProvider(apiKey)
+	p, _ := NewProvider(ctx, apiKey)
 
 	// Gemini provider doesn't pre-validate - lets API fail naturally
 	if err := p.ValidateModel("any-model"); err != nil {
@@ -33,7 +39,8 @@ func TestGeminiProvider_ValidateModel(t *testing.T) {
 }
 
 func TestNewProvider_MissingAPIKey(t *testing.T) {
-	_, err := NewProvider("")
+	ctx := context.Background()
+	_, err := NewProvider(ctx, "")
 	if err == nil {
 		t.Error("expected error when API key is empty")
 	}
@@ -46,12 +53,12 @@ func TestGeminiProvider_Generate_Integration(t *testing.T) {
 		t.Skip("API key not set")
 	}
 
-	p, err := NewProvider(apiKey)
+	ctx := context.Background()
+	p, err := NewProvider(ctx, apiKey)
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}
 
-	ctx := context.Background()
 	result, err := p.Generate(ctx, "Say 'hello' and nothing else")
 	if err != nil {
 		t.Fatalf("Generate failed: %v", err)
@@ -62,4 +69,23 @@ func TestGeminiProvider_Generate_Integration(t *testing.T) {
 	}
 
 	t.Logf("Generated response: %s", result)
+}
+
+func TestGeminiProvider_Generate_ViaCLI(t *testing.T) {
+	// Create provider with only CLI (no API client)
+	p := &Provider{
+		client:  nil,
+		cliPath: "echo", // Use echo to simulate CLI output
+	}
+
+	ctx := context.Background()
+	result, err := p.Generate(ctx, "test-prompt", llm.WithModel("test-model"))
+	if err != nil {
+		t.Fatalf("Generate via CLI failed: %v", err)
+	}
+
+	// echo will output: --model test-model test-prompt
+	if !strings.Contains(result, "test-prompt") {
+		t.Errorf("expected output to contain 'test-prompt', got: %q", result)
+	}
 }
