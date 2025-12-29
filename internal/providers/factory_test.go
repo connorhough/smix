@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"context"
 	"os"
 	"sync"
 	"testing"
@@ -11,9 +12,10 @@ import (
 
 func TestFactory_GetProvider(t *testing.T) {
 	factory := NewFactory()
+	ctx := context.Background()
 
 	t.Run("creates claude provider", func(t *testing.T) {
-		provider, err := factory.GetProvider("claude")
+		provider, err := factory.GetProvider(ctx, "claude")
 		if err != nil {
 			// Skip if claude CLI not available
 			if _, ok := err.(*llm.ProviderError); ok {
@@ -35,7 +37,7 @@ func TestFactory_GetProvider(t *testing.T) {
 			defer os.Unsetenv(gemini.APIKeyEnvVar)
 		}
 
-		provider, err := factory.GetProvider("gemini")
+		provider, err := factory.GetProvider(ctx, "gemini")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -53,7 +55,7 @@ func TestFactory_GetProvider(t *testing.T) {
 		// Create fresh factory to avoid cache
 		newFactory := NewFactory()
 
-		provider, err := newFactory.GetProvider("gemini")
+		provider, err := newFactory.GetProvider(ctx, "gemini")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -63,32 +65,38 @@ func TestFactory_GetProvider(t *testing.T) {
 		}
 	})
 
-	t.Run("fails for gemini without API key", func(t *testing.T) {
+	t.Run("fails for gemini without API key or CLI", func(t *testing.T) {
 		// Ensure env var is not set
 		os.Unsetenv(gemini.APIKeyEnvVar)
 
 		// Create fresh factory to avoid cache
 		newFactory := NewFactory()
 
-		_, err := newFactory.GetProvider("gemini")
+		provider, err := newFactory.GetProvider(ctx, "gemini")
+
+		// If CLI is available, provider creation succeeds
 		if err == nil {
-			t.Error("expected error when API key not set")
+			if provider.Name() != "gemini" {
+				t.Errorf("got provider %q, want %q", provider.Name(), "gemini")
+			}
+			// Valid: CLI-only mode - test passes
+			return
 		}
 
-		// Should be authentication error
+		// If error, should be a ProviderError (neither API key nor CLI)
 		if _, ok := err.(*llm.ProviderError); !ok {
-			t.Errorf("expected ProviderError, got %T", err)
+			t.Errorf("expected ProviderError, got %T: %v", err, err)
 		}
 	})
 
 	t.Run("returns cached provider", func(t *testing.T) {
 		// Get provider twice
-		p1, err := factory.GetProvider("claude")
+		p1, err := factory.GetProvider(ctx, "claude")
 		if err != nil {
 			t.Skip("claude CLI not available")
 		}
 
-		p2, err := factory.GetProvider("claude")
+		p2, err := factory.GetProvider(ctx, "claude")
 		if err != nil {
 			t.Fatalf("unexpected error on second call: %v", err)
 		}
@@ -100,7 +108,7 @@ func TestFactory_GetProvider(t *testing.T) {
 	})
 
 	t.Run("fails for unknown provider", func(t *testing.T) {
-		_, err := factory.GetProvider("unknown")
+		_, err := factory.GetProvider(ctx, "unknown")
 		if err == nil {
 			t.Error("expected error for unknown provider")
 		}
@@ -112,7 +120,7 @@ func TestFactory_GetProvider(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_, _ = factory.GetProvider("claude")
+				_, _ = factory.GetProvider(ctx, "claude")
 			}()
 		}
 		wg.Wait()
