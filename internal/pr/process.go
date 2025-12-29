@@ -16,7 +16,8 @@ import (
 // ProcessReviews processes pull request feedback files and launches interactive provider sessions for each one.
 // Requires a provider that implements InteractiveProvider and a TTY.
 // If providerOverride is not empty, it will be used instead of the configured provider.
-func ProcessReviews(feedbackDir string, providerOverride string) error {
+// If modelOverride is not empty, it will be used instead of the configured model.
+func ProcessReviews(feedbackDir string, providerOverride string, modelOverride string) error {
 	if _, err := os.Stat(feedbackDir); os.IsNotExist(err) {
 		return fmt.Errorf("directory '%s' does not exist", feedbackDir)
 	}
@@ -28,8 +29,8 @@ func ProcessReviews(feedbackDir string, providerOverride string) error {
 		return fmt.Errorf("pr review command requires an interactive terminal (TTY). This command cannot run in CI/CD pipelines or with redirected stdin")
 	}
 
-	// Get configured provider for pr command, default to claude code
-	var providerName string
+	// Get configured provider and model for pr command, default to claude code
+	var providerName, model string
 	if providerOverride != "" {
 		providerName = providerOverride
 	} else {
@@ -38,6 +39,14 @@ func ProcessReviews(feedbackDir string, providerOverride string) error {
 		if providerName == "" {
 			providerName = "claude"
 		}
+	}
+
+	if modelOverride != "" {
+		model = modelOverride
+	} else {
+		cfg := config.ResolveProviderConfig("pr")
+		model = cfg.Model
+		// Model can be empty - provider will use its default
 	}
 
 	provider, err := providers.GetProvider(providerName)
@@ -86,7 +95,7 @@ func ProcessReviews(feedbackDir string, providerOverride string) error {
 		targetFile := extractTargetFile(feedbackFile)
 
 		fmt.Printf("Launching interactive session...\n")
-		if err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, i+1, totalCount); err != nil {
+		if err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, i+1, totalCount, model); err != nil {
 			fmt.Printf("Failed to launch interactive session: %v\n", err)
 		}
 
@@ -101,7 +110,8 @@ func ProcessReviews(feedbackDir string, providerOverride string) error {
 }
 
 // LaunchClaudeCode opens an interactive session with the provider to review feedback and implement changes.
-func LaunchClaudeCode(ctx context.Context, provider llm.Provider, streams *llm.IOStreams, feedbackFile, targetFile string, currentIndex, totalCount int) error {
+// If model is not empty, it will be passed to the provider via WithModel option.
+func LaunchClaudeCode(ctx context.Context, provider llm.Provider, streams *llm.IOStreams, feedbackFile, targetFile string, currentIndex, totalCount int, model string) error {
 	// Verify streams are interactive
 	if !streams.IsInteractive() {
 		return fmt.Errorf("interactive mode requires a terminal (TTY), but stdin is not a terminal. This can happen when running in CI/CD pipelines or when stdin is redirected")
@@ -160,7 +170,11 @@ After completing your actions, provide a concise summary in the following format
 `, feedbackFile, targetFileInfo, batchInfo)
 
 	// Use provider's interactive mode with injected streams
-	return interactive.RunInteractive(ctx, streams, prompt)
+	var opts []llm.Option
+	if model != "" {
+		opts = append(opts, llm.WithModel(model))
+	}
+	return interactive.RunInteractive(ctx, streams, prompt, opts...)
 }
 
 // extractTargetFile extracts the target file path from a feedback markdown file

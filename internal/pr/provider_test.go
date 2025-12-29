@@ -62,7 +62,7 @@ func TestLaunchInteractiveSession_Success(t *testing.T) {
 	feedbackFile := "test_feedback.md"
 	targetFile := "main.go"
 
-	err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, 1, 3)
+	err := LaunchClaudeCode(ctx, provider, streams, feedbackFile, targetFile, 1, 3, "")
 	if err != nil {
 		t.Errorf("LaunchClaudeCode() error = %v", err)
 	}
@@ -100,7 +100,7 @@ func TestLaunchInteractiveSession_NonInteractiveProvider(t *testing.T) {
 	streams, _, _ := llm.TestIOStreams()
 	ctx := context.Background()
 
-	err := LaunchClaudeCode(ctx, wrapper, streams, "test.md", "main.go", 1, 1)
+	err := LaunchClaudeCode(ctx, wrapper, streams, "test.md", "main.go", 1, 1, "")
 	if err == nil {
 		t.Error("expected error for non-interactive provider")
 	}
@@ -136,7 +136,7 @@ func TestLaunchInteractiveSession_NonInteractiveStreams(t *testing.T) {
 	streams, _, _ := llm.TestIOStreamsNonInteractive()
 	ctx := context.Background()
 
-	err := LaunchClaudeCode(ctx, mock, streams, "test.md", "main.go", 1, 1)
+	err := LaunchClaudeCode(ctx, mock, streams, "test.md", "main.go", 1, 1, "")
 	if err == nil {
 		t.Error("expected error for non-interactive streams")
 	}
