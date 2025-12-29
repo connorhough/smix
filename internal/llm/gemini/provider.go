@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"google.golang.org/genai"
@@ -39,9 +40,13 @@ func NewProvider(apiKey string) (*Provider, error) {
 		return nil, llm.ErrProviderNotAvailable("gemini", err)
 	}
 
+	// Optionally detect gemini CLI for interactive mode (non-fatal if not found)
+	cliPath, _ := exec.LookPath("gemini")
+
 	return &Provider{
-		client: client,
-		apiKey: apiKey,
+		client:  client,
+		apiKey:  apiKey,
+		cliPath: cliPath,
 	}, nil
 }
 
