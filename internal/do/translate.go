@@ -41,7 +41,7 @@ User's Request: %s`
 func Translate(ctx context.Context, taskDescription string, cfg *config.ProviderConfig) (string, error) {
 	slog.Debug("do command config: provider=%s, model=%s", cfg.Provider, cfg.Model)
 
-	provider, err := providers.GetProvider(cfg.Provider)
+	provider, err := providers.GetProvider(ctx, cfg.Provider)
 	if err != nil {
 		return "", fmt.Errorf("failed to get provider: %w", err)
 	}

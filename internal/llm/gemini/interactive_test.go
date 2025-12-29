@@ -87,7 +87,7 @@ func TestGeminiProvider_RunInteractive_Integration(t *testing.T) {
 		t.Skipf("skipping: %s not set", APIKeyEnvVar)
 	}
 
-	p, err := NewProvider(apiKey)
+	p, err := NewProvider(context.Background(), apiKey)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)
 	}

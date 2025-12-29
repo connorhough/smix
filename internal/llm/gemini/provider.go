@@ -189,8 +189,8 @@ func (p *Provider) RunInteractive(ctx context.Context, streams *llm.IOStreams, p
 	}
 
 	// Build command with model and prompt
-	// gemini CLI uses -m for model and accepts prompt as positional argument
-	cmd := exec.CommandContext(ctx, p.cliPath, "-m", model, prompt)
+	// gemini CLI uses --model for model and accepts prompt as positional argument
+	cmd := exec.CommandContext(ctx, p.cliPath, "--model", model, "--prompt-interactive", prompt)
 
 	// Connect provided streams to allow interactive mode
 	cmd.Stdin = streams.In

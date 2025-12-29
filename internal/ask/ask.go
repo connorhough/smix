@@ -35,7 +35,7 @@ func Answer(ctx context.Context, question string, cfg *config.ProviderConfig) (s
 	slog.Debug("ask command config", "provider", cfg.Provider, "model", cfg.Model)
 
 	// Get provider from factory
-	provider, err := providers.GetProvider(cfg.Provider)
+	provider, err := providers.GetProvider(ctx, cfg.Provider)
 	if err != nil {
 		return "", fmt.Errorf("failed to get provider: %w", err)
 	}
