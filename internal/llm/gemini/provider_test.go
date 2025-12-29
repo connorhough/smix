@@ -100,3 +100,22 @@ func TestGeminiProvider_Generate_ViaCLI(t *testing.T) {
 		t.Errorf("expected output to contain 'test-prompt', got: %q", result)
 	}
 }
+
+func TestGeminiProvider_Generate_NoClientOrCLI(t *testing.T) {
+	// Provider with neither client nor CLI should fail on Generate
+	p := &Provider{
+		client:  nil,
+		cliPath: "",
+	}
+
+	ctx := context.Background()
+	_, err := p.Generate(ctx, "test prompt")
+	if err == nil {
+		t.Error("expected error when neither client nor CLI available")
+	}
+
+	expectedMsg := "gemini CLI not available"
+	if !strings.Contains(err.Error(), expectedMsg) {
+		t.Errorf("expected error to contain %q, got: %v", expectedMsg, err)
+	}
+}
