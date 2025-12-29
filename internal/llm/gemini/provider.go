@@ -16,8 +16,9 @@ const ProviderGemini = "gemini"
 
 // Provider implements the llm.Provider interface for Gemini API
 type Provider struct {
-	client *genai.Client
-	apiKey string
+	client  *genai.Client
+	apiKey  string
+	cliPath string // Optional: path to gemini CLI for interactive mode
 }
 
 // Verify interface compliance at compile time
