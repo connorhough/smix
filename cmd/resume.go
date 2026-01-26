@@ -25,7 +25,7 @@ func newResumeCmd() *cobra.Command {
 			// Parse time
 			// Try multiple formats
 			var targetTime time.Time
-			now := time.Now()
+			now := resume.SystemClock.Now()
 
 			// Support 12h and 24h formats, with/without seconds, with/without space for AM/PM
 			formats := []string{

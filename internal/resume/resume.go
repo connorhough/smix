@@ -14,7 +14,7 @@ func Run(ctx context.Context, targetTime time.Time, msg string, windowFilter str
 		return fmt.Errorf("resume command is not supported on this platform")
 	}
 
-	now := time.Now()
+	now := SystemClock.Now()
 	// If targetTime is in the past, we assume the user meant the next occurrence (tomorrow).
 	if targetTime.Before(now) {
 		targetTime = targetTime.Add(24 * time.Hour)
@@ -26,15 +26,15 @@ func Run(ctx context.Context, targetTime time.Time, msg string, windowFilter str
 
 	if waitDuration > 10*time.Second {
 		// Sleep until 10s before
-		if err := sleepContext(ctx, waitDuration-10*time.Second); err != nil {
+		if err := SystemClock.Sleep(ctx, waitDuration-10*time.Second); err != nil {
 			return err
 		}
 		fmt.Println("Resuming in 10 seconds...")
-		if err := sleepContext(ctx, 10*time.Second); err != nil {
+		if err := SystemClock.Sleep(ctx, 10*time.Second); err != nil {
 			return err
 		}
 	} else {
-		if err := sleepContext(ctx, waitDuration); err != nil {
+		if err := SystemClock.Sleep(ctx, waitDuration); err != nil {
 			return err
 		}
 	}
@@ -63,15 +63,4 @@ func Run(ctx context.Context, targetTime time.Time, msg string, windowFilter str
 	}
 
 	return nil
-}
-
-func sleepContext(ctx context.Context, d time.Duration) error {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
 }
