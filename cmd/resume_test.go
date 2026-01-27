@@ -52,7 +52,7 @@ func TestResumeCmd_Validation(t *testing.T) {
 	err := cmd.Execute()
 	if err == nil {
 		t.Error("Expected error for missing --at flag, got nil")
-	} else if err.Error() != "--at flag is required (e.g., '14:30', '2:30PM')" {
+	} else if err.Error() != "required flag(s) \"at\" not set" {
 		t.Errorf("Unexpected error: %v", err)
 	}
 

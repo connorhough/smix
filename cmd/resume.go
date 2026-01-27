@@ -18,10 +18,6 @@ func newResumeCmd() *cobra.Command {
 		Short: "Schedule a continue message",
 		Long:  `Wait until a specific time and type a message into the active terminal.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if at == "" {
-				return fmt.Errorf("--at flag is required (e.g., '14:30', '2:30PM')")
-			}
-
 			// Parse time
 			// Try multiple formats
 			var targetTime time.Time
@@ -53,7 +49,8 @@ func newResumeCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&at, "at", "", "Time to resume (required, e.g., '14:30')")
+	cmd.Flags().StringVar(&at, "at", "", "Time to resume (e.g., '14:30')")
+	_ = cmd.MarkFlagRequired("at")
 	cmd.Flags().StringVar(&message, "message", "continue", "Message to type")
 	cmd.Flags().StringVar(&filter, "filter", "", "Substring required in active window title for safety")
 

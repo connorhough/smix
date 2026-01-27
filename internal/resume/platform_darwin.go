@@ -22,9 +22,9 @@ func (p *darwinPlatform) GetActiveWindowTitle(ctx context.Context) (string, erro
 	if err != nil {
 		// Fallback to process name if window has no title or other error
 		script = `tell application "System Events" to get name of first process whose frontmost is true`
-		out2, err2 := runOsaScript(ctx, script)
-		if err2 == nil {
-			return strings.TrimSpace(out2), nil
+		out, err := runOsaScript(ctx, script)
+		if err == nil {
+			return strings.TrimSpace(out), nil
 		}
 		return "", err
 	}
